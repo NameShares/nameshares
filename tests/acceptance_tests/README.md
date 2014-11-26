@@ -29,11 +29,11 @@ After you installed Ruby, install bundler gem:
   $ gem install bundler
   
 
-Now you can install all dependencies by typing 'bundle' inside bitshares_acceptance_tests dir.
+Now you can install all dependencies by typing 'bundle' inside nameshares_acceptance_tests dir.
  
-Next define environment variable BTS_BUILD with path to your bitshares toolkit's build directory, e.g.:
+Next define environment variable BTS_BUILD with path to your nameshares's build directory, e.g.:
 
-  $ export BTS_BUILD=/home/user/bitshares/nameshares
+  $ export BTS_BUILD=/home/user/nameshares/nameshares
   
   
 ## Usage

@@ -1,7 +1,7 @@
 #pragma once
 
 /**
- * This is an internal header for the bitshares toolkit. It does not contain any classes or functions intended for
+ * This is an internal header for the nameshares. It does not contain any classes or functions intended for
  * clients of the toolkit. It exists purely as an implementation detail, and may change at any time withotu notice.
  */
 

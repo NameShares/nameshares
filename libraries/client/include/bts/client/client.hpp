@@ -109,7 +109,7 @@ namespace bts { namespace client {
 
           fc::optional<std::string> growl_notify_endpoint;
           fc::optional<std::string> growl_password;
-          fc::optional<std::string> growl_bitshares_client_identifier;
+          fc::optional<std::string> growl_nameshares_client_identifier;
     };
 
 
@@ -207,5 +207,5 @@ FC_REFLECT( bts::client::config,
             (default_delegate_peers)
             (growl_notify_endpoint)
             (growl_password)
-            (growl_bitshares_client_identifier) )
+            (growl_nameshares_client_identifier) )
 

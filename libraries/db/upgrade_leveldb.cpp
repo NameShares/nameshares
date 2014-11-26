@@ -21,7 +21,7 @@ namespace bts { namespace db {
     }
 
 
-    // this code has no bitshares dependencies, and it
+    // this code has no nameshares dependencies, and it
     // could be moved to fc, if fc ever adds a leveldb dependency
     void try_upgrade_db( const fc::path& dir, leveldb::DB* dbase, const char* record_type, size_t record_type_size )
     {

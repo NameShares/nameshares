@@ -136,7 +136,7 @@ program_options::variables_map parse_option_variables(int argc, char** argv)
 
          ("growl", program_options::value<std::string>()->implicit_value("127.0.0.1"), "Send notifications about potential problems to Growl")
          ("growl-password", program_options::value<std::string>(), "Password for authenticating to a Growl server")
-         ("growl-identifier", program_options::value<std::string>(), "A name displayed in growl messages to identify this bitshares_client instance")
+         ("growl-identifier", program_options::value<std::string>(), "A name displayed in growl messages to identify this nameshares_client instance")
          ;
 
    program_options::variables_map option_variables;
@@ -1596,8 +1596,8 @@ void client::configure_from_command_line(int argc, char** argv)
       std::string bts_instance_identifier = "NameShares";
       if (option_variables.count("growl-identifier"))
          bts_instance_identifier = option_variables["growl-identifier"].as<std::string>();
-      else if (my->_config.growl_bitshares_client_identifier)
-         bts_instance_identifier = *my->_config.growl_bitshares_client_identifier;
+      else if (my->_config.growl_nameshares_client_identifier)
+         bts_instance_identifier = *my->_config.growl_nameshares_client_identifier;
       my->_notifier = std::make_shared<bts_gntp_notifier>(host_to_notify, port_to_notify, bts_instance_identifier, growl_password);
       my->_blocks_too_old_monitor_done = fc::schedule([=]() { my->blocks_too_old_monitor_task(); },
       fc::time_point::now() + fc::seconds(BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC),

@@ -647,7 +647,7 @@ void replay_chain_database()
   bts::client::client_ptr client = std::make_shared<bts::client::client>("wallet_tests", sim_network);
   //client->open( client_dir.path() );
   std::string client_dir_string = client_dir.path().string();
-  char *fake_argv[] = {"bitshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false"};
+  char *fake_argv[] = {"nameshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false"};
   client->configure_from_command_line(sizeof(fake_argv) / sizeof(fake_argv[0]), fake_argv);
   //client->configure_from_command_line(0, nullptr);
   fc::future<void> client_done = client->start();
@@ -740,7 +740,7 @@ void replay_chain_database_in_stages()
   {
     bts::client::client_ptr client = std::make_shared<bts::client::client>("wallet_tests", sim_network);
     std::string client_dir_string = client_dir.path().string();
-    char *fake_argv[] = {"bitshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false", "--daemon", "--rpcuser=none", "--rpcpassword=none"};
+    char *fake_argv[] = {"nameshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false", "--daemon", "--rpcuser=none", "--rpcpassword=none"};
     client->configure_from_command_line(sizeof(fake_argv) / sizeof(fake_argv[0]), fake_argv);
     fc::future<void> client_done = client->start();
 

@@ -1659,8 +1659,8 @@ namespace bts { namespace net { namespace detail {
       // settle on what we really want in there, we'll likely promote them to first
       // class fields in the hello message
       fc::mutable_variant_object user_data;
-      user_data["bitshares_git_revision_sha"] = bts::utilities::git_revision_sha;
-      user_data["bitshares_git_revision_unix_timestamp"] = bts::utilities::git_revision_unix_timestamp;
+      user_data["nameshares_git_revision_sha"] = bts::utilities::git_revision_sha;
+      user_data["nameshares_git_revision_unix_timestamp"] = bts::utilities::git_revision_unix_timestamp;
       user_data["fc_git_revision_sha"] = fc::git_revision_sha;
       user_data["fc_git_revision_unix_timestamp"] = fc::git_revision_unix_timestamp;
 #if defined( __APPLE__ )
@@ -1690,10 +1690,10 @@ namespace bts { namespace net { namespace detail {
     {
       VERIFY_CORRECT_THREAD();
       // try to parse data out of the user_agent string
-      if (user_data.contains("bitshares_git_revision_sha"))
-        originating_peer->bitshares_git_revision_sha = user_data["bitshares_git_revision_sha"].as_string();
-      if (user_data.contains("bitshares_git_revision_unix_timestamp"))
-        originating_peer->bitshares_git_revision_unix_timestamp = fc::time_point_sec(user_data["bitshares_git_revision_unix_timestamp"].as<uint32_t>());
+      if (user_data.contains("nameshares_git_revision_sha"))
+        originating_peer->nameshares_git_revision_sha = user_data["nameshares_git_revision_sha"].as_string();
+      if (user_data.contains("nameshares_git_revision_unix_timestamp"))
+        originating_peer->nameshares_git_revision_unix_timestamp = fc::time_point_sec(user_data["nameshares_git_revision_unix_timestamp"].as<uint32_t>());
       if (user_data.contains("fc_git_revision_sha"))
         originating_peer->fc_git_revision_sha = user_data["fc_git_revision_sha"].as_string();
       if (user_data.contains("fc_git_revision_unix_timestamp"))
@@ -1742,9 +1742,9 @@ namespace bts { namespace net { namespace detail {
 
       // if they didn't provide a last known fork, try to guess it
       if (originating_peer->last_known_fork_block_number == 0 &&
-          originating_peer->bitshares_git_revision_unix_timestamp)
+          originating_peer->nameshares_git_revision_unix_timestamp)
       {
-        uint32_t unix_timestamp = originating_peer->bitshares_git_revision_unix_timestamp->sec_since_epoch();
+        uint32_t unix_timestamp = originating_peer->nameshares_git_revision_unix_timestamp->sec_since_epoch();
         originating_peer->last_known_fork_block_number = _delegate->estimate_last_known_fork_from_git_revision_timestamp(unix_timestamp);
       }
 
@@ -1796,7 +1796,7 @@ namespace bts { namespace net { namespace detail {
             if (next_fork_block_number < head_block_num)
             {
 #ifdef ENABLE_DEBUG_ULOGS
-              ulog("Rejecting connection from peer because their version is too old.  Their version date: ${date}", ("date", originating_peer->bitshares_git_revision_unix_timestamp));
+              ulog("Rejecting connection from peer because their version is too old.  Their version date: ${date}", ("date", originating_peer->nameshares_git_revision_unix_timestamp));
 #endif
               wlog("Received hello message from peer running a version of that can only understand blocks up to #${their_hard_fork}, but I'm at head block number #${my_block_number}",
                    ("their_hard_fork", next_fork_block_number)("my_block_number", head_block_num));
@@ -2709,7 +2709,7 @@ namespace bts { namespace net { namespace detail {
                                                            fc::oexception(fc::exception(FC_LOG_MESSAGE(error, "You need to upgrade your client due to hard fork at block ${block_number}", 
                                                                                                        ("block_number", block_message_to_send.block.block_num)))));
 #ifdef ENABLE_DEBUG_ULOGS
-                ulog("Disconnecting from peer during sync because their version is too old.  Their version date: ${date}", ("date", peer->bitshares_git_revision_unix_timestamp));
+                ulog("Disconnecting from peer during sync because their version is too old.  Their version date: ${date}", ("date", peer->nameshares_git_revision_unix_timestamp));
 #endif
                 disconnecting_this_peer = true;
               }
@@ -3015,7 +3015,7 @@ namespace bts { namespace net { namespace detail {
               {
                 peers_to_disconnect.push_back(peer);
 #ifdef ENABLE_DEBUG_ULOGS
-                ulog("Disconnecting from peer because their version is too old.  Their version date: ${date}", ("date", peer->bitshares_git_revision_unix_timestamp));
+                ulog("Disconnecting from peer because their version is too old.  Their version date: ${date}", ("date", peer->nameshares_git_revision_unix_timestamp));
 #endif
               }
             }
@@ -3095,8 +3095,8 @@ namespace bts { namespace net { namespace detail {
             ( "block_id",block_message_to_process.block_id ) );
       fc::exception detailed_error( FC_LOG_MESSAGE(error, "You sent me a block that I didn't ask for, block_id: ${block_id}",
                                                   ( "block_id", block_message_to_process.block_id )
-                                                  ( "bitshares_git_revision_sha", originating_peer->bitshares_git_revision_sha )
-                                                  ( "bitshares_git_revision_unix_timestamp", originating_peer->bitshares_git_revision_unix_timestamp )
+                                                  ( "nameshares_git_revision_sha", originating_peer->nameshares_git_revision_sha )
+                                                  ( "nameshares_git_revision_unix_timestamp", originating_peer->nameshares_git_revision_unix_timestamp )
                                                   ( "fc_git_revision_sha", originating_peer->fc_git_revision_sha )
                                                   ( "fc_git_revision_unix_timestamp", originating_peer->fc_git_revision_unix_timestamp ) ) );
       disconnect_from_peer( originating_peer, "You sent me a block that I didn't ask for", true, detailed_error );
@@ -3181,10 +3181,10 @@ namespace bts { namespace net { namespace detail {
         data_for_this_peer.connection_direction = peer->direction;
         data_for_this_peer.firewalled = peer->is_firewalled;
         fc::mutable_variant_object user_data;
-        if (peer->bitshares_git_revision_sha)
-          user_data["bitshares_git_revision_sha"] = *peer->bitshares_git_revision_sha;
-        if (peer->bitshares_git_revision_unix_timestamp)
-          user_data["bitshares_git_revision_unix_timestamp"] = *peer->bitshares_git_revision_unix_timestamp;
+        if (peer->nameshares_git_revision_sha)
+          user_data["nameshares_git_revision_sha"] = *peer->nameshares_git_revision_sha;
+        if (peer->nameshares_git_revision_unix_timestamp)
+          user_data["nameshares_git_revision_unix_timestamp"] = *peer->nameshares_git_revision_unix_timestamp;
         if (peer->fc_git_revision_sha)
           user_data["fc_git_revision_sha"] = *peer->fc_git_revision_sha;
         if (peer->fc_git_revision_unix_timestamp)
@@ -4157,27 +4157,27 @@ namespace bts { namespace net { namespace detail {
         peer_details["banscore"] = ""; // TODO: fill me for bitcoin compatibility
         peer_details["syncnode"] = ""; // TODO: fill me for bitcoin compatibility
 
-        if (peer->bitshares_git_revision_sha)
+        if (peer->nameshares_git_revision_sha)
         {
-          std::string revision_string = *peer->bitshares_git_revision_sha;
-          if (*peer->bitshares_git_revision_sha == bts::utilities::git_revision_sha)
+          std::string revision_string = *peer->nameshares_git_revision_sha;
+          if (*peer->nameshares_git_revision_sha == bts::utilities::git_revision_sha)
             revision_string += " (same as ours)";
           else
             revision_string += " (different from ours)";
-          peer_details["bitshares_git_revision_sha"] = revision_string;
+          peer_details["nameshares_git_revision_sha"] = revision_string;
 
         }
-        if (peer->bitshares_git_revision_unix_timestamp)
+        if (peer->nameshares_git_revision_unix_timestamp)
         {
-          peer_details["bitshares_git_revision_unix_timestamp"] = *peer->bitshares_git_revision_unix_timestamp;
-          std::string age_string = fc::get_approximate_relative_time_string(*peer->bitshares_git_revision_unix_timestamp);
-          if (*peer->bitshares_git_revision_unix_timestamp == fc::time_point_sec(bts::utilities::git_revision_unix_timestamp))
+          peer_details["nameshares_git_revision_unix_timestamp"] = *peer->nameshares_git_revision_unix_timestamp;
+          std::string age_string = fc::get_approximate_relative_time_string(*peer->nameshares_git_revision_unix_timestamp);
+          if (*peer->nameshares_git_revision_unix_timestamp == fc::time_point_sec(bts::utilities::git_revision_unix_timestamp))
             age_string += " (same as ours)";
-          else if (*peer->bitshares_git_revision_unix_timestamp > fc::time_point_sec(bts::utilities::git_revision_unix_timestamp))
+          else if (*peer->nameshares_git_revision_unix_timestamp > fc::time_point_sec(bts::utilities::git_revision_unix_timestamp))
             age_string += " (newer than ours)";
           else
             age_string += " (older than ours)";
-          peer_details["bitshares_git_revision_age"] = age_string;
+          peer_details["nameshares_git_revision_age"] = age_string;
         }
 
         if (peer->fc_git_revision_sha)

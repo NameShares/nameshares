@@ -101,8 +101,8 @@ struct bts_xt_client_test_config
     boost::unit_test::unit_test_log.set_threshold_level(boost::unit_test::log_messages);
   }
 };
-fc::path bts_xt_client_test_config::bts_client_exe = "e:/invictus/vs12_bt/programs/client/Debug/bitshares_client.exe";
-fc::path bts_xt_client_test_config::config_directory = fc::temp_directory_path() / "bitshares_client_tests";
+fc::path bts_xt_client_test_config::bts_client_exe = "e:/invictus/vs12_bt/programs/client/Debug/nameshares_client.exe";
+fc::path bts_xt_client_test_config::config_directory = fc::temp_directory_path() / "nameshares_client_tests";
 uint16_t bts_xt_client_test_config::base_rpc_port  = 20100;
 uint16_t bts_xt_client_test_config::base_p2p_port  = 21100;
 uint16_t bts_xt_client_test_config::base_http_port = 22100;

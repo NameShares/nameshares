@@ -22,7 +22,7 @@ module NameShares
       @running = false
 
       raise 'BTS_BUILD env variable is not set' unless ENV['BTS_BUILD']
-      @client_binary = ENV['BTS_BUILD'] + '/programs/client/bitshares_client'
+      @client_binary = ENV['BTS_BUILD'] + '/programs/client/nameshares_client'
     end
 
     def log(s)

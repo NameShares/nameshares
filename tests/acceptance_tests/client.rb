@@ -1,7 +1,7 @@
 #!/usr/bin/env ruby
 
 require 'open3'
-require_relative './bitshares_api.rb'
+require_relative './nameshares_api.rb'
 
 class NameSharesNode
 
@@ -87,7 +87,7 @@ class NameSharesNode
 end
 
 if $0 == __FILE__
-  client_binary = "#{ENV['BTS_BUILD']}/programs/client/bitshares_client"
+  client_binary = "#{ENV['BTS_BUILD']}/programs/client/nameshares_client"
   client_node = NameSharesNode.new client_binary, data_dir: "tmp/client_a", genesis: "test_genesis.json", http_port: 5680, delegate: false
   client_node.start
   client_node.exec 'create', 'default', '123456789'

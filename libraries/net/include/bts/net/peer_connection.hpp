@@ -122,8 +122,8 @@ namespace bts { namespace net
       node_id_t        node_id; 
       uint32_t         core_protocol_version;
       std::string      user_agent;
-      fc::optional<std::string> bitshares_git_revision_sha;
-      fc::optional<fc::time_point_sec> bitshares_git_revision_unix_timestamp;
+      fc::optional<std::string> nameshares_git_revision_sha;
+      fc::optional<fc::time_point_sec> nameshares_git_revision_unix_timestamp;
       fc::optional<std::string> fc_git_revision_sha;
       fc::optional<fc::time_point_sec> fc_git_revision_unix_timestamp;
       fc::optional<std::string> platform;

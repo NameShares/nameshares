@@ -15,4 +15,4 @@ install:
 
 script:
   - cmake .
-  - make bitshares_client
+  - make nameshares_client

@@ -83,5 +83,5 @@ with open("testnet_setup_log.txt", "w") as log:
 
 
 subprocess.call(["make", "-j4"])
-subprocess.call(["./programs/client/bitshares_client", "--input-log", "testnet_setup_log.txt", "--min-delegate-connection-count", "0"])
+subprocess.call(["./programs/client/nameshares_client", "--input-log", "testnet_setup_log.txt", "--min-delegate-connection-count", "0"])
 
