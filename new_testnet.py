@@ -24,7 +24,8 @@ new_genesis = {
         "timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
         "market_assets": [],
         "names": [],
-        "balances": [],
+        "balances": [["PuVTvYER8hjVdqy6q5PUKSBRNdG9p2PTep", 1000],
+                     ["PusXDPiS8aL7kCYoTDDc4gwCrWnwKdECte", 1000]],
         "bts_sharedrop": []
 }
 
