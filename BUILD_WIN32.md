@@ -8,7 +8,7 @@ Windows - Visual Studio 2013
 #### Set up the directory structure####
 * Create a base directory for all projects.  I'm putting everything in 
   `D:\NameShares`, you can use whatever you like.  In several of the batch files 
-  and makefiles, this directory will be referred to as `BITSHARES_ROOT`:
+  and makefiles, this directory will be referred to as `NAMESHARES_ROOT`:
   ```
 mkdir D:\NameShares
 ```
