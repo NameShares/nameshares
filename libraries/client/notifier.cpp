@@ -27,7 +27,7 @@ namespace bts { namespace client {
       uint32_t _missed_block_count_threshold;
 
       bts_gntp_notifier_impl(const std::string& host_to_notify = "127.0.0.1", uint16_t port = 23053,
-                             const std::string& bts_instance_identifier = "BitShares",
+                             const std::string& bts_instance_identifier = "NameShares",
                              const fc::optional<std::string>& password = fc::optional<std::string>());
       void register_notification_types();
     };
@@ -35,7 +35,7 @@ namespace bts { namespace client {
     extern unsigned bitshares_icon_png_len;
 
     bts_gntp_notifier_impl::bts_gntp_notifier_impl(const std::string&  host_to_notify /* = "127.0.0.1" */, uint16_t port /* = 23053 */,
-                                                   const std::string& bts_instance_identifier /* = "BitShares" */,
+                                                   const std::string& bts_instance_identifier /* = "NameShares" */,
                                                    const fc::optional<std::string>& password /* = optional<std::string>() */) :
       _notifier(host_to_notify, port, password),
       _bitshares_icon(std::make_shared<fc::gntp_icon>((const char*)bitshares_icon_png, bitshares_icon_png_len)),
@@ -76,11 +76,11 @@ namespace bts { namespace client {
   }
 
   bts_gntp_notifier::bts_gntp_notifier(const std::string& host_to_notify /* = "127.0.0.1" */, uint16_t port /* = 23053 */,
-                                       const std::string& bts_instance_identifier /* = "BitShares" */,
+                                       const std::string& bts_instance_identifier /* = "NameShares" */,
                                        const fc::optional<std::string>& password /* = fc::optional<std::string>() */) : 
     my(new detail::bts_gntp_notifier_impl(host_to_notify, port, bts_instance_identifier, password))
   {
-    my->_notifier.set_application_name("BitShares");
+    my->_notifier.set_application_name("NameShares");
     my->_notifier.set_application_icon(my->_bitshares_icon);
     my->register_notification_types();
   }

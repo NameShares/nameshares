@@ -58,7 +58,7 @@ tests/debug_tests.log
 tests/failed_tests.log
 tests/regression_tests/_newtest
 
-BitShares.dmg
+NameShares.dmg
 _CPack_Packages/*
 install_manifest.txt
 
@@ -66,4 +66,5 @@ Debug
 .project
 .cproject
 .pydevproject
-
+.settings
+testnet_setup_log.txt

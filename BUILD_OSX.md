@@ -1,4 +1,4 @@
-Building BitShares Toolkit on OS X 10.9
+Building NameShares on OS X 10.9
 ===============================
 
 0) Install X Code by following these instructions https://guide.macports.org/chunked/installing.xcode.html
@@ -46,10 +46,10 @@ Building BitShares Toolkit on OS X 10.9
     make
     sudo make install
 
-7) Build BitShares Toolkit with CMake
+7) Build NameShares with CMake
 
-    git clone https://github.com/BitShares/bitshares_toolkit.git
-    cd bitshares_toolkit
+    git clone https://github.com/NameShares/nameshares.git
+    cd nameshares
     git submodule init
     git submodule update
     cmake -DCMAKE_PREFIX_PATH=/usr/local/ssl .
@@ -59,8 +59,8 @@ Building BitShares Toolkit on OS X 10.9
 
     TODO: describe Install Node
 
-    git clone git@github.com:BitShares/web_wallet.git
-    git clone git@github.com:BitShares/qt_wallet.git
+    git clone git@github.com:NameShares/web_wallet.git
+    git clone git@github.com:NameShares/qt_wallet.git
     cd programs/web_wallet/
     npm install lineman-angular
     npm install lineman-less

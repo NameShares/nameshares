@@ -75,7 +75,7 @@ using std::string;
 
 namespace bts { namespace client {
 
-const string BTS_MESSAGE_MAGIC = "BitShares Signed Message:\n";
+const string BTS_MESSAGE_MAGIC = "NameShares Signed Message:\n";
 
 void print_banner();
 fc::logging_config create_default_logging_config( const fc::path&, bool enable_ulog );
@@ -200,7 +200,7 @@ void print_banner()
 {
    std::cout<<"================================================================\n";
    std::cout<<"=                                                              =\n";
-   std::cout<<"=             Welcome to BitShares "<< std::setw(5) << std::left << BTS_ADDRESS_PREFIX << "                       =\n";
+   std::cout<<"=             Welcome to NameShares "<< std::setw(5) << std::left << BTS_ADDRESS_PREFIX << "                       =\n";
    std::cout<<"=                                                              =\n";
    std::cout<<"=  This software is in alpha testing and is not suitable for   =\n";
    std::cout<<"=  real monetary transactions or trading.  Use at your own     =\n";
@@ -1377,8 +1377,8 @@ fc::variant_object version_info()
    info["blockchain_name"]                   = BTS_BLOCKCHAIN_NAME;
    info["blockchain_description"]            = BTS_BLOCKCHAIN_DESCRIPTION;
    info["client_version"]                    = client_version;
-   info["bitshares_toolkit_revision"]        = bts::utilities::git_revision_sha;
-   info["bitshares_toolkit_revision_age"]    = fc::get_approximate_relative_time_string( fc::time_point_sec( bts::utilities::git_revision_unix_timestamp ) );
+   info["nameshares_revision"]        = bts::utilities::git_revision_sha;
+   info["nameshares_revision_age"]    = fc::get_approximate_relative_time_string( fc::time_point_sec( bts::utilities::git_revision_unix_timestamp ) );
    info["fc_revision"]                       = fc::git_revision_sha;
    info["fc_revision_age"]                   = fc::get_approximate_relative_time_string( fc::time_point_sec( fc::git_revision_unix_timestamp ) );
    info["compile_date"]                      = "compiled on " __DATE__ " at " __TIME__;
@@ -1593,7 +1593,7 @@ void client::configure_from_command_line(int argc, char** argv)
       else
          growl_password = my->_config.growl_password;
 
-      std::string bts_instance_identifier = "BitShares";
+      std::string bts_instance_identifier = "NameShares";
       if (option_variables.count("growl-identifier"))
          bts_instance_identifier = option_variables["growl-identifier"].as<std::string>();
       else if (my->_config.growl_bitshares_client_identifier)

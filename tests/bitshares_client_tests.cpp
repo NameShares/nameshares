@@ -220,7 +220,7 @@ struct bts_client_process : managed_process
   {
     process_number = process_num;
     std::ostringstream numbered_config_dir_name;
-    numbered_config_dir_name << "BitSharesX_" << std::setw(3) << std::setfill('0') << process_number;
+    numbered_config_dir_name << "NameShares_" << std::setw(3) << std::setfill('0') << process_number;
     config_dir = bts_xt_client_test_config::config_directory / numbered_config_dir_name.str();
     fc::remove_all(config_dir);
     fc::create_directories(config_dir);

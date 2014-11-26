@@ -1,13 +1,13 @@
-BitShares Development Toolkit [![Build Status](https://travis-ci.org/vikramrajkumar/bitshares_toolkit.png)](https://travis-ci.org/vikramrajkumar/bitshares_toolkit)
+NameShares [![Build Status](https://travis-ci.org/vikramrajkumar/nameshares.png)](https://travis-ci.org/vikramrajkumar/nameshares)
 ===============================
-The BitShares development toolkit is a set of libraries used to facilitate
+The NameShares is a set of libraries used to facilitate
 the development of Decentralized Autonomous Companies (DACs).  It provides
 a framework upon which new DACs can be developed based upon a common 
 architecture.  
 
 Build Instructions
 ------------------
-BitShares Toolkit uses git submodules for managing certain external dependencies. Before
+NameShares uses git submodules for managing certain external dependencies. Before
 you can build you will need to fetch the submodules with the following commands:
 
     git submodule init
@@ -20,4 +20,4 @@ would like to build on OS X see BUILD_OSX.md
 
 Documentation
 ------------------
-Documentation is available at the GitHub wiki: https://github.com/BitShares/bitshares_toolkit/wiki.
+Documentation is available at the GitHub wiki: https://github.com/NameShares/nameshares/wiki.

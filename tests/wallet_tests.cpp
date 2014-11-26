@@ -498,8 +498,8 @@ void run_regression_test(fc::path test_dir, bool with_network)
   //  for each verify_file object,
   //    compare generated log files in datadirs to golden reference file (i.e. input command files)
 
-  // caller of this routine should have made sure we are already in bitshares_toolkit/test dir.
-  // so we pop dirs to create regression_tests_results as sibling to bitshares_toolkit source directory
+  // caller of this routine should have made sure we are already in nameshares/test dir.
+  // so we pop dirs to create regression_tests_results as sibling to nameshares source directory
   // (because we don't want the test results to be inadvertantly added to git repo).
   fc::path original_working_directory = boost::filesystem::current_path();
   fc::path regression_test_output_directory = original_working_directory.parent_path().parent_path();
@@ -543,7 +543,7 @@ void run_regression_test(fc::path test_dir, bool with_network)
       //append genesis_file to load to command-line for now (later should be pre-created in test dir I think)
       line += " --genesis-config " + genesis_json_file.string();
 
-      //if no data-dir specified, put in ../bitshares_toolkit/regression_tests/${test dir}/${client_name}
+      //if no data-dir specified, put in ../nameshares/regression_tests/${test dir}/${client_name}
       string client_name = line.substr(0, line.find(' '));
       size_t data_dir_position = line.find("--data-dir");
       if (data_dir_position == string::npos)
@@ -653,7 +653,7 @@ void replay_chain_database()
   fc::future<void> client_done = client->start();
   fc::usleep(fc::milliseconds(10));
   bts::blockchain::chain_database_ptr source_blockchain = std::make_shared<bts::blockchain::chain_database>();
-  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\BitShares X");
+  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\NameShares X");
   source_blockchain->open(test_net_chain_dir / "chain", fc::optional<fc::path>());
   BOOST_TEST_MESSAGE("Opened source blockchain containing " << source_blockchain->get_head_block_num() << " blocks");
   unsigned total_blocks_to_replay = source_blockchain->get_head_block_num();// std::min<unsigned>(source_blockchain->get_head_block_num(), 30000);
@@ -722,7 +722,7 @@ void replay_chain_database_in_stages()
   fc::microseconds accumulated_time;
 
   bts::blockchain::chain_database_ptr source_blockchain = std::make_shared<bts::blockchain::chain_database>();
-  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\BitShares X");
+  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\NameShares X");
   source_blockchain->open(test_net_chain_dir / "chain", fc::optional<fc::path>());
   BOOST_TEST_MESSAGE("Opened source blockchain containing " << source_blockchain->get_head_block_num() << " blocks");
   unsigned total_blocks_to_replay = source_blockchain->get_head_block_num();// std::min<unsigned>(source_blockchain->get_head_block_num(), 30000);

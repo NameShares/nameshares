@@ -5,7 +5,7 @@ require 'yaml'
 require 'open3'
 require_relative './client.rb'
 
-module BitShares
+module NameShares
 
   class TestNet
 
@@ -34,7 +34,7 @@ module BitShares
     def td(path); "#{TEMPDIR}/#{path}"; end
 
     def create_client_node(dir, port, create_wallet=true)
-      clientnode = BitSharesNode.new @client_binary, name: dir, data_dir: td(dir), genesis: 'genesis.json', http_port: port, p2p_port: @p2p_port, logger: @logger
+      clientnode = NameSharesNode.new @client_binary, name: dir, data_dir: td(dir), genesis: 'genesis.json', http_port: port, p2p_port: @p2p_port, logger: @logger
       clientnode.start(false)
       if create_wallet
         clientnode.exec 'wallet_create', 'default', '123456789'
@@ -123,13 +123,13 @@ module BitShares
     end
 
     def start
-      @delegate_node = BitSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
+      @delegate_node = NameSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
       @delegate_node.start(false)
 
-      @alice_node = BitSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, p2p_port: @p2p_port, logger: @logger
+      @alice_node = NameSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, p2p_port: @p2p_port, logger: @logger
       @alice_node.start(false)
 
-      @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, p2p_port: @p2p_port, logger: @logger
+      @bob_node = NameSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, p2p_port: @p2p_port, logger: @logger
       @bob_node.start(false)
 
       nodes = [@delegate_node, @alice_node, @bob_node]
@@ -144,7 +144,7 @@ module BitShares
 
       quick = File.exist?(td('delegate_wallet_backup.json'))
 
-      @delegate_node = BitSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
+      @delegate_node = NameSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
       @delegate_node.start(false)
 
       @alice_node = create_client_node('alice', 5691, !quick)
@@ -174,7 +174,7 @@ module BitShares
 end
 
 if $0 == __FILE__
-  testnet = BitShares::TestNet.new
+  testnet = NameShares::TestNet.new
   if ARGV[0] == '--create'
     testnet.create
   else

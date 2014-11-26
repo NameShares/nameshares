@@ -14,7 +14,7 @@ aliases: getconfig, get_config, config, blockchain_get_config
 {
   "blockchain_id": "29641a8d07fbb61d303ea5fafe3fbe4738fd5092a58cd5427d832760234d1032",
   "symbol": "XTS",
-  "name": "BitShares XTS",
+  "name": "NameShares XTS",
   "version": 109,
   "db_version": "<d-ign></d-ign>",
   "genesis_timestamp": "<d-ign></d-ign>",

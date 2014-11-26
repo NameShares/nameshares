@@ -18,14 +18,14 @@
     </hudson.triggers.TimerTrigger>
   </triggers>
   <concurrentBuild>false</concurrentBuild>
-  <customWorkspace>c:\jenkins\workspace\bitshares_toolkit_win32</customWorkspace>
+  <customWorkspace>c:\jenkins\workspace\nameshares_win32</customWorkspace>
   <builders>
     <hudson.tasks.BatchFile>
-      <command>if exist bitshares_toolkit (
-  rmdir /Q /S bitshares_toolkit || exit /b 10
+      <command>if exist nameshares (
+  rmdir /Q /S nameshares || exit /b 10
 )
-git clone https://github.com/BitShares/bitshares_toolkit.git || exit /b 11
-call bitshares_toolkit\HelperScripts\jenkins_build32.bat || exit /b 12
+git clone https://github.com/NameShares/nameshares.git || exit /b 11
+call nameshares\HelperScripts\jenkins_build32.bat || exit /b 12
 </command>
     </hudson.tasks.BatchFile>
   </builders>

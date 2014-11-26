@@ -85,7 +85,7 @@ end
 
 Before do |scenario|
   STDOUT.puts 'launching testnet, please wait..'
-  @testnet = BitShares::TestNet.new(@logger)
+  @testnet = NameShares::TestNet.new(@logger)
   @testnet.create
   @testnet.alice_node.exec 'wallet_account_create', 'alice'
   @testnet.alice_node.exec 'wallet_account_register', 'alice', 'angel'
