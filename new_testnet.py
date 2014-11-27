@@ -34,7 +34,7 @@ with open("libraries/blockchain/bts-sharedrop.json") as snapshot:
     for item in items:
         new_genesis["bts_sharedrop"].append(item)
 
-for i in range(101):
+for i in range(11):
     keys = json.loads(subprocess.check_output(["./programs/utils/bts_create_key"]))
     input_log.append(">>> wallet_import_private_key " + keys["wif_private_key"])
 
