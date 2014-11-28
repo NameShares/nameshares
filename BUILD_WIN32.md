@@ -45,7 +45,7 @@ git clone https://github.com/InvictusInnovations/leveldb-win.git
    32bit version:    http://get.syncad.com/invictus/Bitshare_toolkit_prebuilt_libs-vs2013.7z
    64bit version:    http://get.syncad.com/invictus/Bitshare_toolkit_prebuilt_libs-vs2013-x64.7z
 
-   and should be unpacked into Bitshare-root directory (ie: D:\Bitshares).
+   and should be unpacked into NameShare-root directory (ie: D:\NameShares).
    Now the package contains: BerkeleyDB, boost 1.55, OpenSSL 1.0.1g.
 
  * BerkeleyDB

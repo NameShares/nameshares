@@ -70,7 +70,7 @@ include_directories( ${CMAKE_SOURCE_DIR}/libraries/client/include )
 
 if( WIN32 )
     set( DB_VERSION 60 )
-    message( STATUS "Configuring Bitshares on WIN32")
+    message( STATUS "Configuring NameShares on WIN32")
     set( ZLIB_LIBRARIES "" )
     set( LEVEL_DB_DIR vendor/leveldb-win )
 

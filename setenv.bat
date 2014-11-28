@@ -1,6 +1,6 @@
 @echo off
 set NAMESHARES_ROOT=%~dp0..\
-echo Using %NAMESHARES_ROOT% as Bitshares root directory
+echo Using %NAMESHARES_ROOT% as NameShares root directory
 
 set OPENSSL_ROOT=%NAMESHARES_ROOT%\OpenSSL
 set OPENSSL_ROOT_DIR=%OPENSSL_ROOT%
