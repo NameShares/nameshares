@@ -1,9 +1,9 @@
 <?xml version='1.0' encoding='UTF-8'?>
 <project>
   <actions/>
-  <description>Bitshares Toolkit for Windows 32-bit&#xd;
+  <description>NameShares for Windows 32-bit&#xd;
 </description>
-  <displayName>Bitshares Toolkit for Windows 32-bit</displayName>
+  <displayName>NameShares for Windows 32-bit</displayName>
   <keepDependencies>false</keepDependencies>
   <properties/>
   <scm class="hudson.scm.NullSCM"/>
