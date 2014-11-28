@@ -18,6 +18,7 @@ mkdir D:\NameShares
 cd D:\NameShares
 git clone https://github.com/NameShares/nameshares.git
 cd nameshares
+git checkout nameshares
 git submodule init
 git submodule update
 cd vendor

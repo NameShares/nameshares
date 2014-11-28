@@ -50,6 +50,7 @@ Building NameShares on OS X 10.9
 
     git clone https://github.com/NameShares/nameshares.git
     cd nameshares
+    git checkout nameshares
     git submodule init
     git submodule update
     cmake -DCMAKE_PREFIX_PATH=/usr/local/ssl .
