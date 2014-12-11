@@ -68,3 +68,5 @@ Debug
 .pydevproject
 .settings
 testnet_setup_log.txt
+.idea
+
