@@ -2,7 +2,7 @@
 <project>
   <actions/>
   <description></description>
-  <displayName>Bitshares for Linux</displayName>
+  <displayName>NameShares for Linux</displayName>
   <keepDependencies>false</keepDependencies>
   <properties/>
   <scm class="hudson.scm.NullSCM"/>
@@ -19,9 +19,9 @@
   <concurrentBuild>false</concurrentBuild>
   <builders>
     <hudson.tasks.Shell>
-      <command>rm -rf bitshares build
-git clone https://github.com/BitShares/bitshares.git
-$WORKSPACE/bitshares/HelperScripts/jenkins_build.sh
+      <command>rm -rf nameshares build
+git clone https://github.com/NameShares/nameshares.git
+$WORKSPACE/nameshares/HelperScripts/jenkins_build.sh
 </command>
     </hudson.tasks.Shell>
   </builders>

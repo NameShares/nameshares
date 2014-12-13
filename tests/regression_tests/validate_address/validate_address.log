@@ -1,7 +1,7 @@
 (wallet closed) >>> help validate_address
 Usage:
-validate_address <address>                                                                            Return information about given BitShares address
-Return information about given BitShares address
+validate_address <address>                                                                            Return information about given NameShares address
+Return information about given NameShares address
 
 Parameters:
   address (string, required): the address or public key to validate

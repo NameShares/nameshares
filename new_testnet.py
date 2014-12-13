@@ -25,16 +25,11 @@ with open("libraries/blockchain/genesis.json") as genesis:
 
 new_genesis["timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
 new_genesis["names"] = []
+new_genesis["balances"] = [["PuVTvYER8hjVdqy6q5PUKSBRNdG9p2PTep", 1000],
+                           ["PusXDPiS8aL7kCYoTDDc4gwCrWnwKdECte", 1000]]
 
-#try:
-#    with open("libraries/blockchain/bts-sharedrop.json") as snapshot:
-#        items = json.loads(snapshot.read())
-#        for item in items:
-#            new_genesis["bts_sharedrop"].append(item)
-#except Exception:
-#    pass
 
-for i in range(101):
+for i in range(33):
     keys = json.loads(subprocess.check_output(["./programs/utils/bts_create_key"]))
     input_log.append(">>> wallet_import_private_key " + keys["wif_private_key"])
 
@@ -82,5 +77,5 @@ with open("testnet_setup_log.txt", "w") as log:
 n = raw_input("Start build? [Y/n]")
 if n != "n":
     subprocess.call(["make", "-j2"])
-    subprocess.call(["./programs/client/bitshares_client", "--input-log", "testnet_setup_log.txt", "--min-delegate-connection-count", "0"])
+    subprocess.call(["./programs/client/nameshares_client", "--input-log", "testnet_setup_log.txt", "--min-delegate-connection-count", "0"])
 

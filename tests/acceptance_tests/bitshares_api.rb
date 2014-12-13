@@ -2,14 +2,14 @@ require 'net/http'
 require 'uri'
 require 'json'
 
-module BitShares
+module NameShares
   class API
 
     @@rpc_instance = nil
 
     def self.init(port, username, password, options = nil)
       options ||= { ignore_errors: false }
-      @@rpc_instance = BitShares::API::Rpc.new(port, username, password, options)
+      @@rpc_instance = NameShares::API::Rpc.new(port, username, password, options)
     end
 
     def self.rpc
@@ -18,19 +18,19 @@ module BitShares
 
     class Wallet
       def self.method_missing(name, *params)
-        BitShares::API::rpc.request("wallet_" + name.to_s, params)
+        NameShares::API::rpc.request("wallet_" + name.to_s, params)
       end
     end
 
     class Network
       def self.method_missing(name, *params)
-        BitShares::API::rpc.request("network_" + name.to_s, params)
+        NameShares::API::rpc.request("network_" + name.to_s, params)
       end
     end
 
     class Blockchain
       def self.method_missing(name, *params)
-        BitShares::API::rpc.request("blockchain_" + name.to_s, params)
+        NameShares::API::rpc.request("blockchain_" + name.to_s, params)
       end
     end
     
@@ -42,7 +42,7 @@ module BitShares
 
     class Misc
       def self.method_missing(name, *params)
-        BitShares::API::rpc.request(name.to_s, params)
+        NameShares::API::rpc.request(name.to_s, params)
       end
     end
 
@@ -99,11 +99,11 @@ end
 
  
 if $0 == __FILE__
-  puts "BitShares API test.."
-  BitShares::API.init(5680, 'user', 'pass')
-  accounts = BitShares::API::Wallet.list_my_accounts()
+  puts "NameShares API test.."
+  NameShares::API.init(5680, 'user', 'pass')
+  accounts = NameShares::API::Wallet.list_my_accounts()
   first_account = accounts[0]['name']
-  puts BitShares::API::Wallet.account_transaction_history(first_account)
-  puts BitShares::API::Wallet.market_order_list("USD", "BTSX")
-  puts BitShares::API::Blockchain.list_assets("USD", 1)
+  puts NameShares::API::Wallet.account_transaction_history(first_account)
+  puts NameShares::API::Wallet.market_order_list("USD", "BTSX")
+  puts NameShares::API::Blockchain.list_assets("USD", 1)
 end

@@ -112,7 +112,7 @@ void upnp_service::map_port( uint16_t local_port )
                }
            }
        
-           std::string strDesc = "BitShares 0.0"; // TODO  + FormatFullVersion();
+           std::string strDesc = "NameShares 0.0"; // TODO  + FormatFullVersion();
        
      //      try 
            {

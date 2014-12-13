@@ -1,11 +1,11 @@
 echo Available processor count: %NUMBER_OF_PROCESSORS%
 echo Starting build # %BUILD_NUMBER%
-cd bitshares
+cd nameshares
 git submodule init || exit /b 21
 git submodule update || exit /b 22
 
 cd %WORKSPACE%
-call bitshares/setenv_x64.bat || exit /b 26
+call nameshares/setenv_x64.bat || exit /b 26
 
 call npm install grunt
 call npm install lineman -g --prefix=%NPM_INSTALL_PREFIX%
@@ -17,6 +17,6 @@ if exist build (
 )
 mkdir build
 cd build
-cmake -DINCLUDE_QT_WALLET=TRUE -DINCLUDE_CRASHRPT=TRUE -G "Visual Studio 12 Win64" ../bitshares || exit /b 28
-msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebInfo /p:Platform=x64 /target:BitShares:rebuild /v:diag BitShares.sln || exit /b 30
-msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebInfo /p:Platform=x64 /target:bitshares_client:rebuild /v:diag BitShares.sln || exit /b 30
+cmake -DINCLUDE_QT_WALLET=TRUE -DINCLUDE_CRASHRPT=TRUE -G "Visual Studio 12 Win64" ../nameshares || exit /b 28
+msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebInfo /p:Platform=x64 /target:NameShares:rebuild /v:diag NameShares.sln || exit /b 30
+msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebInfo /p:Platform=x64 /target:nameshares_client:rebuild /v:diag NameShares.sln || exit /b 30

@@ -1,6 +1,6 @@
-# BitShares Acceptance Testing
+# NameShares Acceptance Testing
 
-This repository holds the BitShares acceptance tests implemented on top of Ruby's cucumber framework.
+This repository holds the NameShares acceptance tests implemented on top of Ruby's cucumber framework.
 
 
 ## Installation
@@ -41,9 +41,9 @@ On **Windows** (not tested) you can use RubyInstaller http://rubyinstaller.org
 
 Now you can install all dependencies by typing 'bundle' inside acceptance_tests dir.
  
-If you are using out of source builds, you need to define BTS_BUILD environment variable pointing to your bitshares build directory, e.g.:
+If you are using out of source builds, you need to define BTS_BUILD environment variable pointing to your nameshares build directory, e.g.:
 ```bash
-  $ export BTS_BUILD=/home/user/bitshares/build
+  $ export BTS_BUILD=/home/user/nameshares/build
 ```
   
 ## Usage

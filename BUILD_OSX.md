@@ -1,4 +1,4 @@
-BitShares OS X Build Instructions
+Building NameShares on OS X 10.9
 ===============================
 
 1. Install XCode and its command line tools by following the instructions here: https://guide.macports.org/#installing.xcode
@@ -29,8 +29,8 @@ BitShares OS X Build Instructions
 
 7. Clone the BitShares repository:
    ```
-   git clone git@github.com:BitShares/bitshares.git
-   cd bitshares
+   git clone git@github.com:BitShares/nameshares.git
+   cd nameshares
    ```
 
 8. Build BitShares:

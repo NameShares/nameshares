@@ -2382,7 +2382,7 @@
       },
       {
          "method_name" : "wallet_login_start",
-         "description" : "Initiates the login procedure by providing a BitShares Login URL",
+         "description" : "Initiates the login procedure by providing a NameShares Login URL",
          "return_type" : "string",
          "parameters"  : [
             {

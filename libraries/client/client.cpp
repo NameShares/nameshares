@@ -75,7 +75,7 @@ using std::string;
 
 namespace bts { namespace client {
 
-const string BTS_MESSAGE_MAGIC = "BitShares Signed Message:\n";
+const string BTS_MESSAGE_MAGIC = "NameShares Signed Message:\n";
 
 fc::logging_config create_default_logging_config( const fc::path&, bool enable_ulog );
 fc::path get_data_dir(const program_options::variables_map& option_variables);
@@ -135,7 +135,7 @@ program_options::variables_map parse_option_variables(int argc, char** argv)
 
          ("growl", program_options::value<std::string>()->implicit_value("127.0.0.1"), "Send notifications about potential problems to Growl")
          ("growl-password", program_options::value<std::string>(), "Password for authenticating to a Growl server")
-         ("growl-identifier", program_options::value<std::string>(), "A name displayed in growl messages to identify this bitshares_client instance")
+         ("growl-identifier", program_options::value<std::string>(), "A name displayed in growl messages to identify this nameshares_client instance")
          ;
 
    program_options::variables_map option_variables;
@@ -1322,16 +1322,16 @@ fc::variant_object version_info()
 #endif
 
    fc::mutable_variant_object info;
-   info["blockchain_name"]          = BTS_BLOCKCHAIN_NAME;
-   info["blockchain_description"]   = BTS_BLOCKCHAIN_DESCRIPTION;
-   info["client_version"]           = client_version;
-   info["bitshares_revision"]       = bts::utilities::git_revision_sha;
-   info["bitshares_revision_age"]   = fc::get_approximate_relative_time_string( fc::time_point_sec( bts::utilities::git_revision_unix_timestamp ) );
-   info["fc_revision"]              = fc::git_revision_sha;
-   info["fc_revision_age"]          = fc::get_approximate_relative_time_string( fc::time_point_sec( fc::git_revision_unix_timestamp ) );
-   info["compile_date"]             = "compiled on " __DATE__ " at " __TIME__;
-   info["boost_version"]            = boost::replace_all_copy(std::string(BOOST_LIB_VERSION), "_", ".");
-   info["openssl_version"]          = OPENSSL_VERSION_TEXT;
+   info["blockchain_name"]                   = BTS_BLOCKCHAIN_NAME;
+   info["blockchain_description"]            = BTS_BLOCKCHAIN_DESCRIPTION;
+   info["client_version"]                    = client_version;
+   info["nameshares_revision"]        = bts::utilities::git_revision_sha;
+   info["nameshares_revision_age"]    = fc::get_approximate_relative_time_string( fc::time_point_sec( bts::utilities::git_revision_unix_timestamp ) );
+   info["fc_revision"]                       = fc::git_revision_sha;
+   info["fc_revision_age"]                   = fc::get_approximate_relative_time_string( fc::time_point_sec( fc::git_revision_unix_timestamp ) );
+   info["compile_date"]                      = "compiled on " __DATE__ " at " __TIME__;
+   info["boost_version"]                     = boost::replace_all_copy(std::string(BOOST_LIB_VERSION), "_", ".");
+   info["openssl_version"]                   = OPENSSL_VERSION_TEXT;
 
    std::string bitness = boost::lexical_cast<std::string>(8 * sizeof(int*)) + "-bit";
 #if defined(__APPLE__)
@@ -1549,11 +1549,11 @@ void client::configure_from_command_line(int argc, char** argv)
       else
          growl_password = my->_config.growl_password;
 
-      std::string bts_instance_identifier = "BitShares";
+      std::string bts_instance_identifier = "NameShares";
       if (option_variables.count("growl-identifier"))
          bts_instance_identifier = option_variables["growl-identifier"].as<std::string>();
-      else if (my->_config.growl_bitshares_client_identifier)
-         bts_instance_identifier = *my->_config.growl_bitshares_client_identifier;
+      else if (my->_config.growl_nameshares_client_identifier)
+         bts_instance_identifier = *my->_config.growl_nameshares_client_identifier;
       my->_notifier = std::make_shared<bts_gntp_notifier>(host_to_notify, port_to_notify, bts_instance_identifier, growl_password);
       my->_blocks_too_old_monitor_done = fc::schedule([=]() { my->blocks_too_old_monitor_task(); },
       fc::time_point::now() + fc::seconds(BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC),

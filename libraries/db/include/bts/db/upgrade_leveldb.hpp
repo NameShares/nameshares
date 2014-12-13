@@ -10,7 +10,7 @@
 namespace fc { class path; }
 
 /**
- * This code has no bitshares dependencies, and it
+ * This code has no nameshares dependencies, and it
  * could be moved to fc, if fc ever adds a leveldb dependency
  *
  * This code enables legacy databases files created by older programs to
