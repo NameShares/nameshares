@@ -4,17 +4,50 @@ namespace bts { namespace blockchain {
 
    balance_record::balance_record( const address& owner, const asset& balance_arg, slate_id_type delegate_id )
    {
-      balance =  balance_arg.amount;
-      condition = withdraw_condition( withdraw_with_signature( owner ), balance_arg.asset_id, delegate_id );
+       balance = balance_arg.amount;
+       condition = withdraw_condition( withdraw_with_signature( owner ), balance_arg.asset_id, delegate_id );
    }
 
+   // TODO: deprecate?
    address balance_record::owner()const
    {
-      if( condition.type == withdraw_signature_type )
-         return condition.as<withdraw_with_signature>().owner;
-      if( condition.type == withdraw_vesting_type )
-         return condition.as<withdraw_vesting>().owner;
-      return address();
+       const auto& addrs = this->owners();
+       FC_ASSERT( !addrs.empty(), "This balance is screwed." );
+       return *addrs.begin();
+   }
+
+   set<address> balance_record::owners()const
+   {
+       switch( withdraw_condition_types( condition.type ) )
+       {
+           case withdraw_signature_type:
+               return set<address>{ condition.as<withdraw_with_signature>().owner };
+           case withdraw_vesting_type:
+               return set<address>{ condition.as<withdraw_vesting>().owner };
+           case withdraw_multisig_type:
+               return condition.as<withdraw_with_multisig>().owners;
+           default:
+               FC_ASSERT(!"This balance's condition type doesn't have a true owner.");
+       }
+   }
+
+   bool balance_record::is_owner( const address& addr )const
+   {
+       return this->owners().count( addr ) > 0;
+   }
+
+   bool balance_record::is_owner( const public_key_type& key )const
+   {
+       const auto& addrs = this->owners();
+       for( const auto& addr : addrs )
+       {
+           if( addr == address( key ) ) return true;
+           if( addr == address( pts_address( key, false, 56 ) ) ) return true;
+           if( addr == address( pts_address( key, true, 56 ) ) ) return true;
+           if( addr == address( pts_address( key, false, 0 ) ) ) return true;
+           if( addr == address( pts_address( key, true, 0 ) ) ) return true;
+       }
+       return false;
    }
 
    asset balance_record::get_spendable_balance( const time_point_sec& at_time )const
@@ -22,6 +55,8 @@ namespace bts { namespace blockchain {
        switch( withdraw_condition_types( condition.type ) )
        {
            case withdraw_signature_type:
+           case withdraw_escrow_type:
+           case withdraw_multisig_type:
            {
                return asset( balance, condition.asset_id );
            }
@@ -40,7 +75,7 @@ namespace bts { namespace blockchain {
                    const auto elapsed_time = (at_time - vesting_condition.start_time).to_seconds();
                    FC_ASSERT( elapsed_time > 0 && elapsed_time < vesting_condition.duration );
                    max_claimable = (vesting_condition.original_balance * elapsed_time) / vesting_condition.duration;
-                   FC_ASSERT( max_claimable > 0 && max_claimable < vesting_condition.original_balance );
+                   FC_ASSERT( max_claimable >= 0 && max_claimable < vesting_condition.original_balance );
                }
 
                const share_type claimed_so_far = vesting_condition.original_balance - balance;
@@ -53,9 +88,11 @@ namespace bts { namespace blockchain {
            }
            default:
            {
-               FC_ASSERT( !"Unsupported withdraw condition!" );
+               elog( "balance_record::get_spendable_balance() called on unsupported withdraw type!" );
+               return asset();
            }
        }
+       FC_ASSERT( !"Should never get here!" );
    }
 
 } } // bts::blockchain

@@ -72,9 +72,8 @@ namespace bts { namespace client {
           wallet_enabled(true),
           ignore_console(false),
           use_upnp(true),
-          maximum_number_of_connections(BTS_NET_DEFAULT_MAX_CONNECTIONS) ,
-          delegate_server( fc::ip::endpoint::from_string("0.0.0.0:9988") ),
-          default_delegate_peers( vector<string>({"0.0.0.0:9988"}) )
+          maximum_number_of_connections(BTS_NET_DEFAULT_MAX_CONNECTIONS),
+          client_debug_name("")
           {
 #ifdef BTS_TEST_NETWORK
               uint32_t port = BTS_NET_TEST_P2P_PORT + BTS_TEST_NETWORK_VERSION;
@@ -104,8 +103,17 @@ namespace bts { namespace client {
           optional<fc::path>  genesis_config;
           uint16_t            maximum_number_of_connections;
           fc::logging_config  logging;
-          fc::ip::endpoint    delegate_server;
-          vector<string>      default_delegate_peers;
+          string              wallet_callback_url;
+          string              client_debug_name;
+          double              relay_fee = double(BTS_BLOCKCHAIN_DEFAULT_RELAY_FEE)/BTS_BLOCKCHAIN_PRECISION;
+          double              light_relay_fee = double(BTS_BLOCKCHAIN_DEFAULT_RELAY_FEE)/BTS_BLOCKCHAIN_PRECISION;
+          /** relay account name is used to specify the name of the account that must be paid when
+           * network_broadcast_transaction is called by a light weight client.  If it is unset then
+           * no fee will be charged.  The fee charged by the light server will be the fee charged
+           * light_relay_fee for allowing general network transactions to propagate.  In effect, light clients
+           * pay 2x the fees, one to the relay_account_name and one to the network delegates.
+           */
+          string              relay_account_name;
 
           fc::optional<std::string> growl_notify_endpoint;
           fc::optional<std::string> growl_password;
@@ -139,6 +147,7 @@ namespace bts { namespace client {
 
          void init_cli();
          void set_daemon_mode(bool daemon_mode);
+         void set_client_debug_name(const string& name);
 
 
          chain_database_ptr         get_chain()const;
@@ -203,9 +212,13 @@ FC_REFLECT( bts::client::chain_server_config, (enabled)(listen_port) )
 FC_REFLECT( bts::client::config,
             (rpc)(default_peers)(chain_servers)(chain_server)(mail_server_enabled)
             (wallet_enabled)(ignore_console)(logging)
-            (delegate_server)
-            (default_delegate_peers)
+            (wallet_callback_url)
+            (client_debug_name)
             (growl_notify_endpoint)
             (growl_password)
-            (growl_nameshares_client_identifier) )
+            (growl_nameshares_client_identifier)
+            (relay_fee)
+            (light_relay_fee)
+            (relay_account_name)
+           )
 

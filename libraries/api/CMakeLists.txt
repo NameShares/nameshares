@@ -6,6 +6,7 @@ if( UNIX AND NOT APPLE )
   set(rt_library rt )
 endif()
 
+add_definitions( -DBTS_GLOBAL_API_LOG=1 )
 
 add_executable( bts_api_generator 
                 bts_api_generator.cpp )
@@ -27,6 +28,8 @@ set(json_description_files "${CMAKE_CURRENT_SOURCE_DIR}/types.json"
                            "${CMAKE_CURRENT_SOURCE_DIR}/network_api.json"
                            "${CMAKE_CURRENT_SOURCE_DIR}/general_api.json"
                            "${CMAKE_CURRENT_SOURCE_DIR}/mail_api.json"
+                           "${CMAKE_CURRENT_SOURCE_DIR}/light_api.json"
+#                          "${CMAKE_CURRENT_SOURCE_DIR}/btc_api.json"  never again
                            "${CMAKE_CURRENT_SOURCE_DIR}/debug_api.json")
 source_group("JSON Files" FILES ${json_description_files})
 
@@ -55,7 +58,7 @@ add_custom_command(OUTPUT ${generated_api_files} ${generated_rpc_stubs_files}
                    ${copy_if_different_commands}
                    DEPENDS bts_api_generator ${json_description_files} )
 
-add_library(bts_api STATIC ${HEADERS} "conversion_functions.cpp" ${json_description_files} ${generated_api_files})
+add_library(bts_api STATIC ${HEADERS} "conversion_functions.cpp" "global_api_logger.cpp" ${json_description_files} ${generated_api_files})
 target_include_directories(bts_api
                            PUBLIC "${CMAKE_CURRENT_BINARY_DIR}/include" 
                                   "${CMAKE_CURRENT_SOURCE_DIR}/include")

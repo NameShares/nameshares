@@ -1,5 +1,6 @@
 #include <bts/blockchain/chain_interface.hpp>
 #include <bts/blockchain/exceptions.hpp>
+#include <fc/io/raw_variant.hpp>
 
 #include <algorithm>
 #include <locale>
@@ -14,21 +15,21 @@ namespace bts { namespace blockchain {
       return optional<string>();
    }
 
-   bool chain_interface::is_valid_account_name( const std::string& str )const
-   {
-      if( str.size() < BTS_BLOCKCHAIN_MIN_NAME_SIZE ) return false;
-      if( str.size() > BTS_BLOCKCHAIN_MAX_NAME_SIZE ) return false;
-      if( !isalpha(str[0]) ) return false;
-      if ( !isalnum(str[str.size()-1]) || isupper(str[str.size()-1]) ) return false;
+   bool chain_interface::is_valid_account_name( const string& name )const
+   { try {
+      if( name.size() < BTS_BLOCKCHAIN_MIN_NAME_SIZE ) return false;
+      if( name.size() > BTS_BLOCKCHAIN_MAX_NAME_SIZE ) return false;
+      if( !isalpha(name[0]) ) return false;
+      if ( !isalnum(name[name.size()-1]) || isupper(name[name.size()-1]) ) return false;
 
-      std::string subname(str);
-      std::string supername;
-      int dot = str.find('.');
-      if( dot != std::string::npos )
+      string subname(name);
+      string supername;
+      int dot = name.find('.');
+      if( dot != string::npos )
       {
-        subname = str.substr(0, dot);
+        subname = name.substr(0, dot);
         //There is definitely a remainder; we checked above that the last character is not a dot
-        supername = str.substr(dot+1);
+        supername = name.substr(dot+1);
       }
 
       if ( !isalnum(subname[subname.size()-1]) || isupper(subname[subname.size()-1]) ) return false;
@@ -42,37 +43,55 @@ namespace bts { namespace blockchain {
       if( supername.empty() )
         return true;
       return is_valid_account_name(supername);
-   }
+   } FC_CAPTURE_AND_RETHROW( (name) ) }
 
-   bool chain_interface::is_valid_symbol_name( const string& name )const
-   {
-      if( name.size() > BTS_BLOCKCHAIN_MAX_SYMBOL_SIZE )
-         return false;
-      if( name.size() < BTS_BLOCKCHAIN_MIN_SYMBOL_SIZE )
-         return false;
-      std::locale loc;
-      for( const auto& c : name )
-         if( !std::isalnum(c,loc) || !std::isupper(c,loc) )
-            return false;
-      return true;
-   }
+   /**
+    *  Symbol names must be Alpha Numeric and may have a single '.' in the name that cannot be
+    *  the first or last.
+    */
+   bool chain_interface::is_valid_symbol_name( const string& symbol )const
+   { try {
+       if( symbol.size() < BTS_BLOCKCHAIN_MIN_SYMBOL_SIZE || symbol.size() > BTS_BLOCKCHAIN_MAX_SYMBOL_SIZE )
+           return false;
+
+       int dots = 0;
+       std::locale loc;
+       for( const auto& c : symbol )
+       {
+           if( c == '.' )
+           {
+              if( ++dots > 1 )
+               return false;
+           }
+           else if( !std::isalnum( c, loc ) || !std::isupper( c, loc ) )
+               return false;
+       }
+       if( symbol.back() == '.' ) return false;
+       if( symbol.front() == '.' ) return false;
+
+       if( symbol.size() >= 3 && symbol.find( "BIT" ) == 0 )
+           return false;
+
+       return true;
+   } FC_CAPTURE_AND_RETHROW( (symbol) ) }
 
    // Starting 2014-11-06, delegates are issued max 50 shares per block produced, and this value is halved every 4 years
    // just like in Bitcoin
-   share_type chain_interface::get_max_delegate_pay_per_block()const
+   share_type chain_interface::get_max_delegate_pay_issued_per_block()const
    {
+       share_type pay_per_block = BTS_MAX_DELEGATE_PAY_PER_BLOCK;
+
        static const time_point_sec start_timestamp = time_point_sec( 1415188800 ); // 2014-11-06 00:00:00 UTC
        static const uint32_t seconds_per_period = fc::days( 4 * 365 ).to_seconds(); // Ignore leap years, leap seconds, etc.
 
        const time_point_sec now = this->now();
-       FC_ASSERT( now >= start_timestamp );
-       const uint32_t elapsed_time = (now - start_timestamp).to_seconds();
-
-       const uint32_t num_full_periods = elapsed_time / seconds_per_period;
-
-       share_type pay_per_block = BTS_MAX_DELEGATE_PAY_PER_BLOCK;
-       for( uint32_t i = 0; i < num_full_periods; ++i )
-           pay_per_block /= 2;
+       if( now >= start_timestamp )
+       {
+           const uint32_t elapsed_time = (now - start_timestamp).to_seconds();
+           const uint32_t num_full_periods = elapsed_time / seconds_per_period;
+           for( uint32_t i = 0; i < num_full_periods; ++i )
+               pay_per_block /= 2;
+       }
 
        return pay_per_block;
    }
@@ -80,7 +99,7 @@ namespace bts { namespace blockchain {
    share_type chain_interface::get_delegate_registration_fee( uint8_t pay_rate )const
    {
        static const uint32_t blocks_per_two_weeks = 14 * BTS_BLOCKCHAIN_BLOCKS_PER_DAY;
-       const share_type max_total_pay_per_two_weeks = blocks_per_two_weeks * get_max_delegate_pay_per_block();
+       const share_type max_total_pay_per_two_weeks = blocks_per_two_weeks * get_max_delegate_pay_issued_per_block();
        const share_type max_pay_per_two_weeks = max_total_pay_per_two_weeks / BTS_BLOCKCHAIN_NUM_DELEGATES;
        const share_type registration_fee = (max_pay_per_two_weeks * pay_rate) / 100;
        FC_ASSERT( registration_fee > 0 );
@@ -121,19 +140,89 @@ namespace bts { namespace blockchain {
       return next_id;
    }
 
-#if 0
-   proposal_id_type   chain_interface::last_proposal_id()const
+   object_id_type chain_interface::last_object_id()const
    {
-       return get_property( chain_property_enum::last_proposal_id ).as<proposal_id_type>();
+       return get_property( chain_property_enum::last_object_id ).as<object_id_type>();
    }
 
-   proposal_id_type   chain_interface::new_proposal_id()
+   object_id_type chain_interface::new_object_id( obj_type type )
    {
-      auto next_id = last_proposal_id() + 1;
-      set_property( chain_property_enum::last_proposal_id, next_id );
+      auto last_id = last_object_id();
+      auto tmp = object_record( type, last_id );
+      tmp.set_id( tmp.type(), tmp.short_id() + 1 );
+      auto next_id = tmp._id;
+      set_property( chain_property_enum::last_object_id, object_id_type( next_id ) );
       return next_id;
    }
-#endif
+
+   // Get an object for whom get_object_owners(o) will not throw and will represent
+   // the condition that is also the owner for this given object
+   object_id_type       chain_interface::get_owner_object( const object_id_type& obj )
+   {
+       FC_ASSERT(!"unimplemented");
+   }
+
+   multisig_condition   chain_interface::get_object_owners( const object_record& obj )
+   { try {
+       multisig_condition owners;
+       switch( obj.type() )
+       {
+           case( obj_type::base_object ):
+           {
+               owners = obj._owners;
+               return owners;
+           }
+           case( obj_type::edge_object ):
+           {
+               const edge_record& edge = obj.as<edge_record>();
+               auto from_object = get_object_record( edge.from );
+               FC_ASSERT( from_object.valid(), "Unrecognized from object.");
+               // Remove the next assert once you deal with max recursion depth for get_object_owners
+               FC_ASSERT( from_object->type() != obj_type::edge_object, "You can't make an edge from an edge yet.");
+               return get_object_owners( *from_object );
+           }
+           case( obj_type::account_object ):
+           {
+               auto account_id = obj.short_id();
+               auto oacct = get_account_record( account_id );
+               FC_ASSERT( oacct.valid(), "No such account object!");
+               owners.owners.insert( oacct->owner_address() );
+               owners.required = 1;
+               return owners;
+           }
+           case( obj_type::asset_object ):
+           {
+               auto oasset = get_asset_record( obj.short_id() );
+               FC_ASSERT( oasset.valid(), "No such asset!" );
+               if( oasset->issuer_account_id > 0 )
+               {
+                   auto oacct = get_account_record( oasset->issuer_account_id );
+                   FC_ASSERT(!"This asset has an issuer but the issuer account doens't exist. Crap!");
+                   owners.owners.insert( oacct->owner_address() );
+                   owners.required = 1;
+                   return owners;
+               }
+               else
+               {
+                   FC_ASSERT(!"That asset has no issuer!");
+               }
+           }
+           default:
+           {
+               FC_ASSERT(!"I don't know how to get the owners for this object type!");
+           }
+       }
+       FC_ASSERT(!"This code path should not happen.");
+   } FC_CAPTURE_AND_RETHROW( (obj.short_id())(obj.type())(obj) ) }
+
+    oedge_record               chain_interface::get_edge( const object_id_type& id )
+    {
+        auto object = get_object_record( id );
+        if( NOT object.valid() )
+            return oedge_record();
+        FC_ASSERT( object->type() == edge_object, "This object is not an edge!"); // TODO check form ID as first check
+        return object->as<edge_record>();
+    }
 
    vector<account_id_type> chain_interface::get_active_delegates()const
    { try {
@@ -159,7 +248,7 @@ namespace bts { namespace blockchain {
       auto oquote_asset = get_asset_record( price_to_pretty_print.quote_asset_id );
       if( !oquote_asset ) FC_CAPTURE_AND_THROW( unknown_asset_id, (price_to_pretty_print.quote_asset_id) );
 
-      return fc::variant(string(price_to_pretty_print.ratio * obase_asset->get_precision() / oquote_asset->get_precision())).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000);
+      return fc::variant(string(price_to_pretty_print.ratio * obase_asset->precision / oquote_asset->precision)).as_double() / (BTS_BLOCKCHAIN_MAX_SHARES*1000);
    }
 
    string chain_interface::to_pretty_price( const price& price_to_pretty_print )const
@@ -171,8 +260,8 @@ namespace bts { namespace blockchain {
       if( !oquote_asset ) FC_CAPTURE_AND_THROW( unknown_asset_id, (price_to_pretty_print.quote_asset_id) );
 
       auto tmp = price_to_pretty_print;
-      tmp.ratio *= obase_asset->get_precision();
-      tmp.ratio /= oquote_asset->get_precision();
+      tmp.ratio *= obase_asset->precision;
+      tmp.ratio /= oquote_asset->precision;
 
       return tmp.ratio_string() + " " + oquote_asset->symbol + " / " + obase_asset->symbol;
    } FC_CAPTURE_AND_RETHROW( (price_to_pretty_print) ) }
@@ -218,8 +307,8 @@ namespace bts { namespace blockchain {
       price ugly_price(price_string + " " + std::to_string(quote_record->id) + " / " + std::to_string(base_record->id));
       if( do_precision_dance )
       {
-         ugly_price.ratio *= quote_record->get_precision();
-         ugly_price.ratio /= base_record->get_precision();
+         ugly_price.ratio *= quote_record->precision;
+         ugly_price.ratio /= base_record->precision;
       }
       return ugly_price;
    } FC_CAPTURE_AND_RETHROW( (price_string)(base_symbol)(quote_symbol) ) }
@@ -227,10 +316,10 @@ namespace bts { namespace blockchain {
    string chain_interface::to_pretty_asset( const asset& a )const
    {
       const auto oasset = get_asset_record( a.asset_id );
-      const auto amount = ( a.amount >= 0 ) ? a.amount : -a.amount;
+      const share_type amount = ( a.amount >= 0 ) ? a.amount : -a.amount;
       if( oasset.valid() )
       {
-         const auto precision = oasset->get_precision();
+         const auto precision = oasset->precision;
          string decimal = fc::to_string( precision + ( amount % precision ) );
          decimal[0] = '.';
          const auto str = fc::to_pretty_string( amount / precision ) + decimal + " " + oasset->symbol;

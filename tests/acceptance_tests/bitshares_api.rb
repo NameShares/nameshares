@@ -33,6 +33,12 @@ module NameShares
         NameShares::API::rpc.request("blockchain_" + name.to_s, params)
       end
     end
+    
+    class Mail
+      def self.method_missing(name, *params)
+        BitShares::API::rpc.request("mail_" + name.to_s, params)
+      end
+    end
 
     class Misc
       def self.method_missing(name, *params)
@@ -44,6 +50,8 @@ module NameShares
 
       class Error < RuntimeError; end
 
+      attr_accessor :ignore_errors, :echo_off
+
       def initialize(port, username, password, options)
         @uri = URI("http://localhost:#{port}/rpc")
         @req = Net::HTTP::Post.new(@uri)
@@ -51,26 +59,30 @@ module NameShares
         @req.basic_auth username, password
         @options = options
         @logger = options[:logger]
+        @instance_name = options[:instance_name]
+        @ignore_errors = options[:ignore_errors]
+        @echo_off = false
       end
 
       def log(s)
+        return if @echo_off
         if @logger then @logger.info s else puts s end
       end
-
+      
       def request(method, params = nil)
         params = params || []
-        log "request: #{method} #{params.join(' ')}"
+        log "[#{@instance_name}] request: #{method} #{params.join(' ')}"
         result = nil
         Net::HTTP.start(@uri.hostname, @uri.port) do |http|
           @req.body = { method: method, params: params, id: 0 }.to_json
           response = http.request(@req)
           result = JSON.parse(response.body)
           if result['error']
-            if !@options[:ignore_errors]
-              raise Error, result['error'], "#{method} #{params ? params.join(' ') : ''}"
+            log "error: #{result['error']}"
+            unless @ignore_errors
+              raise Error, JSON.pretty_generate(result['error']), "#{method} #{params ? params.join(' ') : ''}"
             else
-              log "Error: #{result['error']}"
-              STDERR.puts "Error: #{result['error']}\n"
+              STDERR.puts JSON.pretty_generate(result['error'])
             end
           else
             log 'ok'

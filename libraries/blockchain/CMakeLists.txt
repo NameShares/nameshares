@@ -53,9 +53,13 @@ add_library( bts_blockchain
              delegate_slate.cpp
              asset_operations.cpp
              market_operations.cpp
-#proposal_operations.cpp
              feed_operations.cpp
 #fire_operation.cpp
+             object_operations.cpp
+             edge_operations.cpp
+             sale_operations.cpp
+             auction_operations.cpp
+             site_operations.cpp
              asset.cpp
              transaction.cpp
              time.cpp
@@ -65,6 +69,11 @@ add_library( bts_blockchain
              account_record.cpp
              asset_record.cpp
              market_records.cpp
+             object_record.cpp
+             edge_record.cpp
+             site_record.cpp
+             sale_record.cpp
+             auction_records.cpp
              chain_interface.cpp
              pending_chain_state.cpp
              market_engine.cpp
@@ -81,10 +90,10 @@ else()
   set_source_files_properties(${generated_genesis_file} PROPERTIES COMPILE_FLAGS "-O0")
   if (CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
     # compiling this file with optimizations enabled causes internal compiler error in gcc 4.9 - 4.9.1
-	# see https://github.com/BitShares/bitshares_toolkit/issues/774, remove this when
+	# see https://github.com/BitShares/bitshares/issues/774, remove this when
 	# the bug in gcc is fixed
     set_source_files_properties(chain_database.cpp PROPERTIES COMPILE_FLAGS "-O0")
-  endif()  
+  endif()
 endif()
 
 target_link_libraries( bts_blockchain fc bts_db leveldb )

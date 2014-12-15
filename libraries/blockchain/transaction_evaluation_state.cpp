@@ -13,21 +13,51 @@ namespace bts { namespace blockchain {
    {
    }
 
-   void transaction_evaluation_state::reset()
+   bool transaction_evaluation_state::verify_authority( const multisig_meta_info& siginfo )
    {
-      signed_keys.clear();
-      balance.clear();
-      deposits.clear();
-      withdraws.clear();
-      net_delegate_votes.clear();
-      required_deposits.clear();
-      validation_error.reset();
+      uint32_t sig_count = 0;
+      for( const auto item : siginfo.owners )
+         sig_count += check_signature( item );
+      return sig_count >= siginfo.required;
    }
 
    bool transaction_evaluation_state::check_signature( const address& a )const
    { try {
       return  _skip_signature_check || signed_keys.find( a ) != signed_keys.end();
    } FC_CAPTURE_AND_RETHROW( (a) ) }
+
+   bool transaction_evaluation_state::check_multisig( const multisig_condition& condition )const
+   { try {
+
+      if( _skip_signature_check )
+          return true;
+      auto valid = 0;
+      for( auto addr : condition.owners )
+          if( signed_keys.find( addr) != signed_keys.end() )
+              valid++;
+      return valid >= condition.required;
+
+   } FC_CAPTURE_AND_RETHROW( (condition) ) }
+
+
+   bool transaction_evaluation_state::check_update_permission( const object_id_type& id )const
+   { try {
+        if( _skip_signature_check )
+            return true;
+        auto object = _current_state->get_object_record( id );
+        FC_ASSERT( object.valid(), "Checking update permission for an object that doesn't exist!");
+        switch( object->type() )
+        {
+            case( obj_type::base_object ):
+            {
+                return check_multisig( object->_owners );
+                break;
+            }
+            default:
+                FC_ASSERT(!"Unimplemenetd case in check_update_permission");
+        }
+        return false;
+   } FC_CAPTURE_AND_RETHROW( (id) ) }
 
    bool transaction_evaluation_state::any_parent_has_signed( const string& account_name )const
    { try {
@@ -71,24 +101,6 @@ namespace bts { namespace blockchain {
       if( !current_account->is_delegate() ) FC_CAPTURE_AND_THROW( not_a_delegate, (id) );
    }
 
-   void transaction_evaluation_state::add_required_deposit( const address& owner_key, const asset& amount )
-   {
-      FC_ASSERT( trx.delegate_slate_id );
-      balance_id_type balance_id = withdraw_condition(
-                                       withdraw_with_signature( owner_key ),
-                                       amount.asset_id, *trx.delegate_slate_id ).get_address();
-
-      auto itr = required_deposits.find( balance_id );
-      if( itr == required_deposits.end() )
-      {
-         required_deposits[balance_id] = amount;
-      }
-      else
-      {
-         required_deposits[balance_id] += amount;
-      }
-   }
-
    void transaction_evaluation_state::update_delegate_votes()
    {
       auto asset_rec = _current_state->get_asset_record( asset_id_type() );
@@ -122,7 +134,16 @@ namespace bts { namespace blockchain {
     */
    void transaction_evaluation_state::post_evaluate()
    { try {
-      // Should this be here? We may not have fees in XTS now...
+      for( const auto& item : withdraws )
+      {
+         auto asset_rec = _current_state->get_asset_record( item.first );
+         if( !asset_rec.valid() ) FC_CAPTURE_AND_THROW( unknown_asset_id, (item) );
+         if( asset_rec->id > 0 && asset_rec->is_market_issued() && asset_rec->transaction_fee > 0 )
+         {
+            sub_balance( address(), asset(asset_rec->transaction_fee, asset_rec->id) );
+         }
+      }
+
       balance[0]; // make sure we have something for this.
       for( const auto& fee : balance )
       {
@@ -140,7 +161,7 @@ namespace bts { namespace blockchain {
          // lowest ask is someone with XTS offered at a price of USD / XTS, fee.first
          // is an amount of USD which can be converted to price*USD XTS provided we
          // send lowest_ask.index.owner the USD
-         oprice median_price = _current_state->get_median_delegate_price( fee.first );
+         oprice median_price = _current_state->get_median_delegate_price( fee.first, asset_id_type( 0 ) );
          if( median_price )
          {
             // fees paid in something other than XTS are discounted 50%
@@ -161,20 +182,10 @@ namespace bts { namespace blockchain {
             _current_state->store_asset_record( *asset_record );
          }
       }
-
-      for( const auto& required_deposit : required_deposits )
-      {
-         auto provided_itr = provided_deposits.find( required_deposit.first );
-
-         if( provided_itr->second < required_deposit.second )
-            FC_CAPTURE_AND_THROW( missing_deposit, (required_deposit) );
-      }
-
    } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
    void transaction_evaluation_state::evaluate( const signed_transaction& trx_arg, bool skip_signature_check )
    { try {
-      reset();
       _skip_signature_check = skip_signature_check;
       try {
         if( _current_state->now() >= trx_arg.expiration )
@@ -204,11 +215,11 @@ namespace bts { namespace blockchain {
               signed_keys.insert( address(pts_address(key,true,0) )   );
            }
         }
-        _current_op_index = 0;
+        current_op_index = 0;
         for( const auto& op : trx.operations )
         {
            evaluate_operation( op );
-           ++_current_op_index;
+           ++current_op_index;
         }
         post_evaluate();
         validate_required_fee();
@@ -250,9 +261,6 @@ namespace bts { namespace blockchain {
       return 0;
    }
 
-   /**
-    *
-    */
    void transaction_evaluation_state::sub_balance( const balance_id_type& balance_id, const asset& amount )
    { try {
       if( balance_id != balance_id_type() )
@@ -288,7 +296,7 @@ namespace bts { namespace blockchain {
           balance[amount.asset_id] = -amount.amount;
       }
 
-      deltas[ _current_op_index ] = amount;
+      deltas[ current_op_index ] = amount;
    } FC_CAPTURE_AND_RETHROW( (balance_id)(amount) ) }
 
    void transaction_evaluation_state::add_balance( const asset& amount )
@@ -305,7 +313,7 @@ namespace bts { namespace blockchain {
       else
          balance_itr->second += amount.amount;
 
-      deltas[ _current_op_index ] = -amount;
+      deltas[ current_op_index ] = -amount;
    } FC_CAPTURE_AND_RETHROW( (amount) ) }
 
    /**

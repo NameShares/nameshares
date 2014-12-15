@@ -5,16 +5,6 @@ git submodule init || exit /b 21
 git submodule update || exit /b 22
 
 cd %WORKSPACE%
-cd nameshares/vendor
-if exist leveldb-win (
-    pushd leveldb-win
-    git reset --hard || exit /b 23
-    git pull || exit /b 24
-) else (
-    git clone https://www.github.com/InvictusInnovations/leveldb-win.git || exit /b 25
-)
-
-cd %WORKSPACE%
 call nameshares/setenv_x64.bat || exit /b 26
 
 call npm install grunt
@@ -27,5 +17,6 @@ if exist build (
 )
 mkdir build
 cd build
-cmake -DINCLUDE_QT_WALLET=TRUE -DINCLUDE_CRASHRPT=FALSE -G "Visual Studio 12 Win64" ../nameshares || exit /b 28
-msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebinfo /p:Platform=x64 /target:rebuild /v:diag NameShares.sln || exit /b 30
+cmake -DINCLUDE_QT_WALLET=TRUE -DINCLUDE_CRASHRPT=TRUE -G "Visual Studio 12 Win64" ../nameshares || exit /b 28
+msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebInfo /p:Platform=x64 /target:NameShares:rebuild /v:diag NameShares.sln || exit /b 30
+msbuild.exe /M:%NUMBER_OF_PROCESSORS% /p:Configuration=RelWithDebInfo /p:Platform=x64 /target:nameshares_client:rebuild /v:diag NameShares.sln || exit /b 30

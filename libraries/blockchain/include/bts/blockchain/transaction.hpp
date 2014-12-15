@@ -2,9 +2,10 @@
 
 #include <bts/blockchain/delegate_slate.hpp>
 #include <bts/blockchain/operations.hpp>
-#include <bts/blockchain/proposal_record.hpp>
 #include <bts/blockchain/withdraw_types.hpp>
 #include <bts/blockchain/account_record.hpp>
+#include <bts/blockchain/object_record.hpp>
+#include <bts/blockchain/edge_record.hpp>
 
 #include <fc/reflect/variant.hpp>
 
@@ -38,6 +39,9 @@ namespace bts { namespace blockchain {
 
       void issue( const asset& amount_to_issue );
 
+      void set_object( const object_record& obj );
+      void set_edge( const edge_record& edge );
+
       void define_delegate_slate( delegate_slate s );
 
       void withdraw( const balance_id_type& account,
@@ -50,6 +54,8 @@ namespace bts { namespace blockchain {
                     const asset& amount,
                     slate_id_type delegate_id );
 
+      void authorize_key( asset_id_type asset_id, const address& owner, object_id_type meta );
+
       void deposit_multisig( const multisig_meta_info& info,
                              const asset& amount,
                              slate_id_type delegate_id );
@@ -59,7 +65,7 @@ namespace bts { namespace blockchain {
                            share_type amount_to_sender,
                            share_type amount_to_receiver );
 
-      void deposit_to_escrow( fc::ecc::public_key receiver_key,
+      public_key_type deposit_to_escrow( fc::ecc::public_key receiver_key,
                               fc::ecc::public_key escrow_key,
                               digest_type agreement,
                               asset amount,
@@ -70,7 +76,7 @@ namespace bts { namespace blockchain {
                               fc::ecc::private_key one_time_private_key,
                               memo_flags_enum memo_type = from_memo );
 
-      void deposit_to_account( fc::ecc::public_key receiver_key,
+      public_key_type deposit_to_account( fc::ecc::public_key receiver_key,
                                 asset amount,
                                 fc::ecc::private_key from_key,
                                 const string& memo_message,
@@ -92,25 +98,34 @@ namespace bts { namespace blockchain {
                         const optional<variant>& public_data,
                         const optional<public_key_type>& active );
 
-      void submit_proposal( account_id_type delegate_id,
-                            const string& subject,
-                            const string& body,
-                            const string& proposal_type,
-                            const variant& public_data);
-
-      void vote_proposal(proposal_id_type proposal_id,
-                         account_id_type voter_id,
-                         proposal_vote::vote_type vote,
-                         const string& message );
-
-
       void create_asset( const string& symbol,
                          const string& name,
                          const string& description,
                          const variant& data,
                          account_id_type issuer_id,
-                         share_type   max_share_supply,
-                         int64_t      precision );
+                         share_type max_share_supply,
+                         uint64_t precision );
+
+      void update_asset( const asset_id_type& asset_id,
+                         const optional<string>& name,
+                         const optional<string>& description,
+                         const optional<variant>& public_data,
+                         const optional<double>& maximum_share_supply,
+                         const optional<uint64_t>& precision );
+
+      void update_asset_ext( const asset_id_type& asset_id,
+                         const optional<string>& name,
+                         const optional<string>& description,
+                         const optional<variant>& public_data,
+                         const optional<double>& maximum_share_supply,
+                         const optional<uint64_t>& precision,
+                         const share_type& issuer_fee,
+                         uint32_t flags,
+                         uint32_t issuer_permissions,
+                         account_id_type issuer_account_id,
+                         uint32_t required_sigs,
+                         const vector<address>& authority
+                         );
 
       void burn( const asset& quantity,
                  account_id_type for_or_against,
@@ -121,8 +136,18 @@ namespace bts { namespace blockchain {
                 const price& price_per_unit,
                 const address& owner );
 
+      void relative_bid( const asset& quantity,
+                const price& price_per_unit,
+                const optional<price>& limit,
+                const address& owner );
+
       void ask( const asset& quantity,
                 const price& price_per_unit,
+                const address& owner );
+
+      void relative_ask( const asset& quantity,
+                const price& price_per_unit,
+                const optional<price>& limit,
                 const address& owner );
 
       void short_sell( const asset& quantity,
@@ -140,13 +165,14 @@ namespace bts { namespace blockchain {
                          account_id_type delegate_id,
                          fc::variant value );
 
+      void update_signing_key( const account_id_type& account_id, const public_key_type& block_signing_key );
+
       bool is_cancel()const;
    }; // transaction
 
    struct signed_transaction : public transaction
    {
       transaction_id_type                     id()const;
-      transaction_id_type                     permanent_id()const;
       size_t                                  data_size()const;
       void                                    sign( const fc::ecc::private_key& signer, const digest_type& chain_id );
 

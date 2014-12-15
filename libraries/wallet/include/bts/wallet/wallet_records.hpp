@@ -40,6 +40,20 @@ namespace bts { namespace wallet {
       setting_record_type        = 9
    };
 
+   struct escrow_summary
+   {
+      /** the transaction ID that created the escrow balance */
+      transaction_id_type creating_transaction_id;
+      balance_id_type     balance_id;
+      /** the amount of money still held in escrow */
+      asset               balance;
+      /** the account name of the escrow agent */
+      string              sender_account_name;
+      string              receiver_account_name;
+      string              escrow_agent_account_name;
+      digest_type         agreement_digest;
+   };
+
    struct generic_wallet_record
    {
        generic_wallet_record():type(0){}
@@ -101,17 +115,12 @@ namespace bts { namespace wallet {
     */
    struct account_data : public bts::blockchain::account_record
    {
-       address  account_address;
-       /**
-        * Data kept locally for this account
-        */
-       variant  private_data;
-
-       bool     is_my_account = false;
-       int8_t   approved = 0;
-       bool     is_favorite = false;
-       bool     block_production_enabled = false;
-       uint32_t last_used_gen_sequence = 0;
+       bool                             is_my_account = false;
+       int8_t                           approved = 0;
+       bool                             is_favorite = false;
+       bool                             block_production_enabled = false;
+       uint32_t                         last_used_gen_sequence = 0;
+       variant                          private_data;
    };
 
    template<typename RecordTypeName, wallet_record_type_enum RecordTypeNumber>
@@ -135,21 +144,18 @@ namespace bts { namespace wallet {
 
    struct key_data
    {
-       address                  account_address;
-       public_key_type          public_key;
-       std::vector<char>        encrypted_private_key;
-       bool                     valid_from_signature = false;
-       optional<string>         memo;
-       /** defines the generation number that was used to generate the key
-        * relative to the account address.
-        */
-       uint32_t                 gen_seq_number = 0;
+       address                          account_address;
+       public_key_type                  public_key;
+       std::vector<char>                encrypted_private_key;
+       bool                             valid_from_signature = false;
+       optional<string>                 memo; // this memo is not used for anything.
+       uint32_t                         gen_seq_number = 0;
 
-       address                  get_address()const { return address( public_key ); }
-       bool                     has_private_key()const;
-       void                     encrypt_private_key( const fc::sha512& password,
-                                                     const private_key_type& );
-       private_key_type         decrypt_private_key( const fc::sha512& password )const;
+       address                          get_address()const { return address( public_key ); }
+       bool                             has_private_key()const;
+       void                             encrypt_private_key( const fc::sha512& password,
+                                                             const private_key_type& );
+       private_key_type                 decrypt_private_key( const fc::sha512& password )const;
    };
 
    struct ledger_entry
@@ -271,6 +277,16 @@ namespace bts { namespace wallet {
 
 } } // bts::wallet
 
+FC_REFLECT( bts::wallet::escrow_summary,
+            (creating_transaction_id)
+            (balance_id)
+            (balance)
+            (sender_account_name)
+            (receiver_account_name)
+            (escrow_agent_account_name)
+            (agreement_digest)
+          )
+
 FC_REFLECT_ENUM( bts::wallet::wallet_record_type_enum,
         (master_key_record_type)
         (account_record_type)
@@ -304,13 +320,12 @@ FC_REFLECT( bts::wallet::wallet_property,
         )
 
 FC_REFLECT_DERIVED( bts::wallet::account_data, (bts::blockchain::account_record),
-        (account_address)
-        (private_data)
         (is_my_account)
         (approved)
         (is_favorite)
         (block_production_enabled)
         (last_used_gen_sequence)
+        (private_data)
         )
 
 FC_REFLECT( bts::wallet::master_key,

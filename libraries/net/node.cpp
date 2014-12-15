@@ -390,6 +390,12 @@ namespace bts { namespace net { namespace detail {
       // in use.
       fc::ip::endpoint     _actual_listening_endpoint;
 
+      /// we determine whether we're firewalled by asking other nodes.  Store the result here:
+      firewalled_state     _is_firewalled;
+      /// if we're behind NAT, our listening endpoint address will appear different to the rest of the world.  store it here.
+      fc::optional<fc::ip::endpoint> _publicly_visible_listening_endpoint;
+      fc::time_point       _last_firewall_check_message_sent;
+
       /// used by the task that manages connecting to peers
       // @{
       std::list<potential_peer_record> _add_once_node_list; /// list of peers we want to connect to as soon as possible
@@ -566,6 +572,7 @@ namespace bts { namespace net { namespace detail {
       bool is_accepting_new_connections();
       bool is_wanting_new_connections();
       uint32_t get_number_of_connections();
+      peer_connection_ptr get_peer_by_node_id(const node_id_t& id);
 
       bool is_already_connected_to_id(const node_id_t& node_id);
       bool merge_address_info_with_potential_peer_database( const std::vector<address_info> addresses );
@@ -619,11 +626,13 @@ namespace bts { namespace net { namespace detail {
       void on_current_time_reply_message( peer_connection* originating_peer,
                                           const current_time_reply_message& current_time_reply_message_received );
 
-      void on_check_firewall_message( peer_connection* originating_peer,
-                                      const check_firewall_message& check_firewall_message_received );
+      void forward_firewall_check_to_next_available_peer(firewall_check_state_data* firewall_check_state);
 
-      void on_check_firewall_reply_message( peer_connection* originating_peer,
-                                            const check_firewall_reply_message& check_firewall_reply_message_received );
+      void on_check_firewall_message(peer_connection* originating_peer,
+                                     const check_firewall_message& check_firewall_message_received);
+
+      void on_check_firewall_reply_message(peer_connection* originating_peer,
+                                           const check_firewall_reply_message& check_firewall_reply_message_received);
 
       void on_get_current_connections_request_message(peer_connection* originating_peer,
                                                       const get_current_connections_request_message& get_current_connections_request_message_received);
@@ -631,29 +640,29 @@ namespace bts { namespace net { namespace detail {
       void on_get_current_connections_reply_message(peer_connection* originating_peer,
                                                     const get_current_connections_reply_message& get_current_connections_reply_message_received);
 
-      void on_connection_closed( peer_connection* originating_peer ) override;
+      void on_connection_closed(peer_connection* originating_peer) override;
 
       void send_sync_block_to_node_delegate(const bts::client::block_message& block_message_to_send);
       void process_backlog_of_sync_blocks();
       void trigger_process_backlog_of_sync_blocks();
-      void process_block_during_sync( peer_connection* originating_peer, const bts::client::block_message& block_message, const message_hash_type& message_hash );
-      void process_block_during_normal_operation( peer_connection* originating_peer, const bts::client::block_message& block_message, const message_hash_type& message_hash );
-      void process_block_message( peer_connection* originating_peer, const message& message_to_process, const message_hash_type& message_hash );
+      void process_block_during_sync(peer_connection* originating_peer, const bts::client::block_message& block_message, const message_hash_type& message_hash);
+      void process_block_during_normal_operation(peer_connection* originating_peer, const bts::client::block_message& block_message, const message_hash_type& message_hash);
+      void process_block_message(peer_connection* originating_peer, const message& message_to_process, const message_hash_type& message_hash);
 
-      void process_ordinary_message( peer_connection* originating_peer, const message& message_to_process, const message_hash_type& message_hash );
+      void process_ordinary_message(peer_connection* originating_peer, const message& message_to_process, const message_hash_type& message_hash);
 
       void start_synchronizing();
-      void start_synchronizing_with_peer( const peer_connection_ptr& peer );
+      void start_synchronizing_with_peer(const peer_connection_ptr& peer);
 
-      void new_peer_just_added( const peer_connection_ptr& peer ); /// called after a peer finishes handshaking, kicks off syncing
+      void new_peer_just_added(const peer_connection_ptr& peer); /// called after a peer finishes handshaking, kicks off syncing
 
       void close();
 
-      void accept_connection_task( peer_connection_ptr new_peer );
+      void accept_connection_task(peer_connection_ptr new_peer);
       void accept_loop();
-      void send_hello_message( const peer_connection_ptr& peer );
-      void connect_to_task( peer_connection_ptr new_peer, const fc::ip::endpoint& remote_endpoint );
-      bool is_connection_to_endpoint_in_progress( const fc::ip::endpoint& remote_endpoint );
+      void send_hello_message(const peer_connection_ptr& peer);
+      void connect_to_task(peer_connection_ptr new_peer, const fc::ip::endpoint& remote_endpoint);
+      bool is_connection_to_endpoint_in_progress(const fc::ip::endpoint& remote_endpoint);
 
       void move_peer_to_active_list(const peer_connection_ptr& peer);
       void move_peer_to_closing_list(const peer_connection_ptr& peer);
@@ -677,7 +686,8 @@ namespace bts { namespace net { namespace detail {
       void listen_to_p2p_network();
       void connect_to_p2p_network();
       void add_node( const fc::ip::endpoint& ep );
-      void connect_to( const fc::ip::endpoint& ep );
+      void initiate_connect_to(const peer_connection_ptr& peer);
+      void connect_to_endpoint(const fc::ip::endpoint& ep);
       void listen_on_endpoint( const fc::ip::endpoint& ep );
       void accept_incoming_connections(bool accept);
       void listen_on_port( uint16_t port, bool wait_if_not_available );
@@ -748,6 +758,7 @@ namespace bts { namespace net { namespace detail {
       _thread(std::make_shared<fc::thread>("p2p")),
 #endif // P2P_IN_DEDICATED_THREAD
       _delegate(nullptr),
+      _is_firewalled(firewalled_state::unknown),
       _potential_peer_database_updated(false),
       _sync_items_to_fetch_updated(false),
       _suspend_fetching_sync_blocks(false),
@@ -786,11 +797,18 @@ namespace bts { namespace net { namespace detail {
       ilog( "cleaning up node" );
       _node_is_shutting_down = true;
 
-      for( const peer_connection_ptr& active_peer : _active_connections )
+      for (const peer_connection_ptr& active_peer : _active_connections)
       {
-        potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *active_peer->get_remote_endpoint() );
-        updated_peer_record.last_seen_time = fc::time_point::now();
-        _potential_peer_db.update_entry( updated_peer_record );
+        fc::optional<fc::ip::endpoint> inbound_endpoint = active_peer->get_endpoint_for_connecting();
+        if (inbound_endpoint)
+        {
+          fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(*inbound_endpoint);
+          if (updated_peer_record)
+          {
+            updated_peer_record->last_seen_time = fc::time_point::now();
+            _potential_peer_db.update_entry(*updated_peer_record);
+          }
+        }
       }
 
       try
@@ -830,63 +848,61 @@ namespace bts { namespace net { namespace detail {
     void node_impl::p2p_network_connect_loop()
     {
       VERIFY_CORRECT_THREAD();
-      while( !_p2p_network_connect_loop_done.canceled() )
+      while (!_p2p_network_connect_loop_done.canceled())
       {
         try
         {
-          dlog( "Starting an iteration of p2p_network_connect_loop()." );
+          dlog("Starting an iteration of p2p_network_connect_loop().");
           display_current_connections();
 
           // add-once peers bypass our checks on the maximum/desired number of connections (but they will still be counted against the totals once they're connected)
-          if( !_add_once_node_list.empty() )
+          if (!_add_once_node_list.empty())
           {
             std::list<potential_peer_record> add_once_node_list;
-            add_once_node_list.swap( _add_once_node_list );
-            dlog( "Processing \"add once\" node list containing ${count} peers:", ("count", add_once_node_list.size() ) );
-            for( const potential_peer_record& add_once_peer : add_once_node_list )
+            add_once_node_list.swap(_add_once_node_list);
+            dlog("Processing \"add once\" node list containing ${count} peers:", ("count", add_once_node_list.size()));
+            for (const potential_peer_record& add_once_peer : add_once_node_list)
             {
-              dlog( "    ${peer}", ("peer", add_once_peer.endpoint ) );
+              dlog("    ${peer}", ("peer", add_once_peer.endpoint));
             }
-            for( const potential_peer_record& add_once_peer : add_once_node_list )
+            for (const potential_peer_record& add_once_peer : add_once_node_list)
             {
               // see if we have an existing connection to that peer.  If we do, disconnect them and
               // then try to connect the next time through the loop
               peer_connection_ptr existing_connection_ptr = get_connection_to_endpoint( add_once_peer.endpoint );
-              if( !existing_connection_ptr )
-                connect_to( add_once_peer.endpoint );
+              if(!existing_connection_ptr)
+                connect_to_endpoint(add_once_peer.endpoint);
             }
-            dlog( "Done processing \"add once\" node list" );
+            dlog("Done processing \"add once\" node list");
           }
 
-          while ( is_wanting_new_connections() )
+          while (is_wanting_new_connections())
           {
             bool initiated_connection_this_pass = false;
             _potential_peer_database_updated = false;
 
-            for( peer_database::iterator iter = _potential_peer_db.begin();
+            for (peer_database::iterator iter = _potential_peer_db.begin();
                  iter != _potential_peer_db.end() && is_wanting_new_connections();
-                 ++iter )
+                 ++iter)
             {
-              fc::microseconds delay_until_retry = fc::seconds((iter->number_of_failed_connection_attempts + 1 ) * _peer_connection_retry_timeout);
+              fc::microseconds delay_until_retry = fc::seconds((iter->number_of_failed_connection_attempts + 1) * _peer_connection_retry_timeout);
 
-              if( !is_connection_to_endpoint_in_progress(iter->endpoint ) &&
-                  ( (iter->last_connection_disposition != last_connection_failed &&
-                     iter->last_connection_disposition != last_connection_rejected &&
-                     iter->last_connection_disposition != last_connection_handshaking_failed) ||
-                    (fc::time_point::now() - iter->last_connection_attempt_time) > delay_until_retry ) )
+              if (!is_connection_to_endpoint_in_progress(iter->endpoint) &&
+                  ((iter->last_connection_disposition != last_connection_failed &&
+                    iter->last_connection_disposition != last_connection_rejected &&
+                    iter->last_connection_disposition != last_connection_handshaking_failed) ||
+                   (fc::time_point::now() - iter->last_connection_attempt_time) > delay_until_retry))
               {
-                connect_to( iter->endpoint );
+                connect_to_endpoint(iter->endpoint);
                 initiated_connection_this_pass = true;
               }
             }
 
-            if( !initiated_connection_this_pass && !_potential_peer_database_updated )
+            if (!initiated_connection_this_pass && !_potential_peer_database_updated)
               break;
           }
 
           display_current_connections();
-
-
 
           // if we broke out of the while loop, that means either we have connected to enough nodes, or
           // we don't have any good candidates to connect to right now.
@@ -915,15 +931,15 @@ namespace bts { namespace net { namespace detail {
           fc::usleep(fc::seconds(10));
 #endif
         }
-        catch ( const fc::canceled_exception& )
+        catch (const fc::canceled_exception&)
         {
           throw;
         }
-        catch ( const fc::exception& e  )
+        catch (const fc::exception& e)
         {
-          elog(  "${e}", ("e",e.to_detail_string()  )  );
+          elog("${e}", ("e", e.to_detail_string()));
         }
-      }// while( !canceled )
+      }// while(!canceled)
     }
 
     void node_impl::trigger_p2p_network_connect_loop()
@@ -1055,51 +1071,51 @@ namespace bts { namespace net { namespace detail {
     void node_impl::fetch_items_loop()
     {
       VERIFY_CORRECT_THREAD();
-      while( !_fetch_item_loop_done.canceled() )
+      while (!_fetch_item_loop_done.canceled())
       {
         _items_to_fetch_updated = false;
-        dlog( "beginning an iteration of fetch items (${count} items to fetch)", ("count", _items_to_fetch.size() ) );
+        dlog("beginning an iteration of fetch items (${count} items to fetch)", 
+             ("count", _items_to_fetch.size()));
 
         fc::time_point next_peer_unblocked_time = fc::time_point::maximum();
 
-        std::forward_list< std::pair<peer_connection_ptr, item_id> > fetch_messages_to_send;
-        std::vector< fc::future<void> >  write_ops;
-        for( auto iter = _items_to_fetch.begin(); iter != _items_to_fetch.end();  )
+        std::forward_list<std::pair<peer_connection_ptr, item_id> > fetch_messages_to_send;
+        std::vector<fc::future<void> >  write_ops;
+        for (auto iter = _items_to_fetch.begin(); iter != _items_to_fetch.end();)
         {
           bool item_fetched = false;
-          for( const peer_connection_ptr& peer : _active_connections )
+          for (const peer_connection_ptr& peer : _active_connections)
           {
-            if( peer->idle() &&
-                peer->inventory_peer_advertised_to_us.find(iter->item) != peer->inventory_peer_advertised_to_us.end() )
+            if (peer->idle() &&
+                peer->inventory_peer_advertised_to_us.find(iter->item) != peer->inventory_peer_advertised_to_us.end())
             {
               if (peer->is_transaction_fetching_inhibited() && iter->item.item_type == bts::client::trx_message_type)
-              {
                 next_peer_unblocked_time = std::min(peer->transaction_fetching_inhibited_until, next_peer_unblocked_time);
-              }
               else
               {
-                dlog( "requesting item ${hash} from peer ${endpoint}", ("hash", iter->item.item_hash )("endpoint", peer->get_remote_endpoint() ) );
-                peer->items_requested_from_peer.insert( peer_connection::item_to_time_map_type::value_type(iter->item, fc::time_point::now() ) );
+                dlog("requesting item ${hash} from peer ${endpoint}", 
+                     ("hash", iter->item.item_hash)("endpoint", peer->get_remote_endpoint()));
+                peer->items_requested_from_peer.insert(peer_connection::item_to_time_map_type::value_type(iter->item, fc::time_point::now()));
                 item_id item_id_to_fetch = iter->item;
-                iter = _items_to_fetch.erase( iter );
+                iter = _items_to_fetch.erase(iter);
                 item_fetched = true;
                 fetch_messages_to_send.emplace_front(std::make_pair(peer, item_id_to_fetch));
                 break;
               }
             }
           }
-          if( !item_fetched )
+          if (!item_fetched)
             ++iter;
         }
 
-        for( const auto& peer_and_item : fetch_messages_to_send )
+        for (const auto& peer_and_item : fetch_messages_to_send)
           peer_and_item.first->send_message(fetch_items_message(peer_and_item.second.item_type,
                                                                 std::vector<item_hash_t>{peer_and_item.second.item_hash}));
         fetch_messages_to_send.clear();
 
-        if( !_items_to_fetch_updated )
+        if (!_items_to_fetch_updated)
         {
-          _retrigger_fetch_item_loop_promise = fc::promise<void>::ptr( new fc::promise<void>("bts::net::retrigger_fetch_item_loop") );
+          _retrigger_fetch_item_loop_promise = fc::promise<void>::ptr(new fc::promise<void>("bts::net::retrigger_fetch_item_loop"));
           fc::microseconds time_until_retrigger = fc::microseconds::maximum();
           if (next_peer_unblocked_time != fc::time_point::maximum())
             time_until_retrigger = next_peer_unblocked_time - fc::time_point::now();
@@ -1114,7 +1130,7 @@ namespace bts { namespace net { namespace detail {
           }
           _retrigger_fetch_item_loop_promise.reset();
         }
-      } // while ( !canceled )
+      } // while (!canceled)
     }
 
     void node_impl::trigger_fetch_items_loop()
@@ -1128,19 +1144,19 @@ namespace bts { namespace net { namespace detail {
     void node_impl::advertise_inventory_loop()
     {
       VERIFY_CORRECT_THREAD();
-      while( !_advertise_inventory_loop_done.canceled() )
+      while (!_advertise_inventory_loop_done.canceled())
       {
-        dlog( "beginning an iteration of advertise inventory" );
+        dlog("beginning an iteration of advertise inventory");
         // swap inventory into local variable, clearing the node's copy
         std::unordered_set<item_id> inventory_to_advertise;
-        inventory_to_advertise.swap( _new_inventory );
+        inventory_to_advertise.swap(_new_inventory);
 
         // process all inventory to advertise and construct the inventory messages we'll send
         // first, then send them all in a batch (to avoid any fiber interruption points while
         // we're computing the messages)
         std::list<std::pair<peer_connection_ptr, item_ids_inventory_message> > inventory_messages_to_send;
 
-        for( const peer_connection_ptr& peer : _active_connections )
+        for (const peer_connection_ptr& peer : _active_connections)
         {
           // only advertise to peers who are in sync with us
           if( !peer->peer_needs_sync_items_from_us )
@@ -1150,11 +1166,11 @@ namespace bts { namespace net { namespace detail {
             // or anything it has advertised to us
             // group the items we need to send by type, because we'll need to send one inventory message per type
             unsigned total_items_to_send_to_this_peer = 0;
-            for( const item_id& item_to_advertise : inventory_to_advertise )
-              if( peer->inventory_advertised_to_peer.find(item_to_advertise) == peer->inventory_advertised_to_peer.end() &&
-                  peer->inventory_peer_advertised_to_us.find(item_to_advertise) == peer->inventory_peer_advertised_to_us.end() )
+            for (const item_id& item_to_advertise : inventory_to_advertise)
+              if (peer->inventory_advertised_to_peer.find(item_to_advertise) == peer->inventory_advertised_to_peer.end() &&
+                  peer->inventory_peer_advertised_to_us.find(item_to_advertise) == peer->inventory_peer_advertised_to_us.end())
               {
-                items_to_advertise_by_type[item_to_advertise.item_type].push_back( item_to_advertise.item_hash );
+                items_to_advertise_by_type[item_to_advertise.item_type].push_back(item_to_advertise.item_hash);
                 peer->inventory_advertised_to_peer.insert(peer_connection::timestamped_item_id(item_to_advertise, fc::time_point::now()));
                 ++total_items_to_send_to_this_peer;
                 if (item_to_advertise.item_type == trx_message_type)
@@ -1162,24 +1178,26 @@ namespace bts { namespace net { namespace detail {
                 dlog("advertising item ${id} to peer ${endpoint}", ("id", item_to_advertise.item_hash)("endpoint", peer->get_remote_endpoint()));
               }
               dlog("advertising ${count} new item(s) of ${types} type(s) to peer ${endpoint}",
-                   ("count", total_items_to_send_to_this_peer)("types", items_to_advertise_by_type.size())("endpoint", peer->get_remote_endpoint()) );
-            for( auto items_group : items_to_advertise_by_type )
-              inventory_messages_to_send.push_back( std::make_pair(peer, item_ids_inventory_message(items_group.first, items_group.second)) );
+                   ("count", total_items_to_send_to_this_peer)
+                   ("types", items_to_advertise_by_type.size())
+                   ("endpoint", peer->get_remote_endpoint()));
+            for (auto items_group : items_to_advertise_by_type)
+              inventory_messages_to_send.push_back(std::make_pair(peer, item_ids_inventory_message(items_group.first, items_group.second)));
           }
           peer->clear_old_inventory();
         }
 
-        for( auto iter = inventory_messages_to_send.begin(); iter != inventory_messages_to_send.end(); ++iter )
-          iter->first->send_message( iter->second );
+        for (auto iter = inventory_messages_to_send.begin(); iter != inventory_messages_to_send.end(); ++iter)
+          iter->first->send_message(iter->second);
         inventory_messages_to_send.clear();
 
-        if( _new_inventory.empty() )
+        if (_new_inventory.empty())
         {
-          _retrigger_advertise_inventory_loop_promise = fc::promise<void>::ptr( new fc::promise<void>("bts::net::retrigger_advertise_inventory_loop") );
+          _retrigger_advertise_inventory_loop_promise = fc::promise<void>::ptr(new fc::promise<void>("bts::net::retrigger_advertise_inventory_loop"));
           _retrigger_advertise_inventory_loop_promise->wait();
           _retrigger_advertise_inventory_loop_promise.reset();
         }
-      } // while( !canceled )
+      } // while(!canceled)
     }
 
     void node_impl::trigger_advertise_inventory_loop()
@@ -1510,6 +1528,17 @@ namespace bts { namespace net { namespace detail {
       return (uint32_t)(_handshaking_connections.size() + _active_connections.size());
     }
 
+    peer_connection_ptr node_impl::get_peer_by_node_id(const node_id_t& node_id)
+    {
+      for (const peer_connection_ptr& active_peer : _active_connections)
+        if (node_id == active_peer->node_id)
+          return active_peer;
+      for (const peer_connection_ptr& handshaking_peer : _handshaking_connections)
+        if (node_id == handshaking_peer->node_id)
+          return handshaking_peer;
+      return peer_connection_ptr();
+    }
+
     bool node_impl::is_already_connected_to_id(const node_id_t& node_id)
     {
       VERIFY_CORRECT_THREAD();
@@ -1534,19 +1563,19 @@ namespace bts { namespace net { namespace detail {
     }
 
     // merge addresses received from a peer into our database
-    bool node_impl::merge_address_info_with_potential_peer_database( const std::vector<address_info> addresses )
+    bool node_impl::merge_address_info_with_potential_peer_database(const std::vector<address_info> addresses)
     {
       VERIFY_CORRECT_THREAD();
       bool new_information_received = false;
-      for( const address_info& address : addresses )
+      for (const address_info& address : addresses)
       {
         if (address.firewalled == bts::net::firewalled_state::not_firewalled)
         {
-          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( address.remote_endpoint );
-          if( address.last_seen_time > updated_peer_record.last_seen_time )
+          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(address.remote_endpoint);
+          if (address.last_seen_time > updated_peer_record.last_seen_time)
             new_information_received = true;
-          updated_peer_record.last_seen_time = std::max( address.last_seen_time, updated_peer_record.last_seen_time );
-          _potential_peer_db.update_entry( updated_peer_record );
+          updated_peer_record.last_seen_time = std::max(address.last_seen_time, updated_peer_record.last_seen_time);
+          _potential_peer_db.update_entry(updated_peer_record);
         }
       }
       return new_information_received;
@@ -1581,63 +1610,65 @@ namespace bts { namespace net { namespace detail {
     {
       VERIFY_CORRECT_THREAD();
       message_hash_type message_hash = received_message.id();
-      dlog( "handling message ${type} ${hash} size ${size} from peer ${endpoint}",
-           ( "type", bts::net::core_message_type_enum(received_message.msg_type ) )("hash", message_hash )("size", received_message.size )("endpoint", originating_peer->get_remote_endpoint() ) );
+      dlog("handling message ${type} ${hash} size ${size} from peer ${endpoint}",
+           ("type", bts::net::core_message_type_enum(received_message.msg_type))("hash", message_hash)
+           ("size", received_message.size)
+           ("endpoint", originating_peer->get_remote_endpoint()));
       switch ( received_message.msg_type )
       {
       case core_message_type_enum::hello_message_type:
-        on_hello_message( originating_peer, received_message.as<hello_message>() );
+        on_hello_message(originating_peer, received_message.as<hello_message>());
         break;
       case core_message_type_enum::connection_accepted_message_type:
-        on_connection_accepted_message( originating_peer, received_message.as<connection_accepted_message>() );
+        on_connection_accepted_message(originating_peer, received_message.as<connection_accepted_message>());
         break;
       case core_message_type_enum::connection_rejected_message_type:
-        on_connection_rejected_message( originating_peer, received_message.as<connection_rejected_message>() );
+        on_connection_rejected_message(originating_peer, received_message.as<connection_rejected_message>());
         break;
       case core_message_type_enum::address_request_message_type:
-        on_address_request_message( originating_peer, received_message.as<address_request_message>() );
+        on_address_request_message(originating_peer, received_message.as<address_request_message>());
         break;
       case core_message_type_enum::address_message_type:
-        on_address_message( originating_peer, received_message.as<address_message>() );
+        on_address_message(originating_peer, received_message.as<address_message>());
         break;
       case core_message_type_enum::fetch_blockchain_item_ids_message_type:
-        on_fetch_blockchain_item_ids_message( originating_peer, received_message.as<fetch_blockchain_item_ids_message>() );
+        on_fetch_blockchain_item_ids_message(originating_peer, received_message.as<fetch_blockchain_item_ids_message>());
         break;
       case core_message_type_enum::blockchain_item_ids_inventory_message_type:
-        on_blockchain_item_ids_inventory_message( originating_peer, received_message.as<blockchain_item_ids_inventory_message>() );
+        on_blockchain_item_ids_inventory_message(originating_peer, received_message.as<blockchain_item_ids_inventory_message>());
         break;
       case core_message_type_enum::fetch_items_message_type:
-        on_fetch_items_message( originating_peer, received_message.as<fetch_items_message>() );
+        on_fetch_items_message(originating_peer, received_message.as<fetch_items_message>());
         break;
       case core_message_type_enum::item_not_available_message_type:
-        on_item_not_available_message( originating_peer, received_message.as<item_not_available_message>() );
+        on_item_not_available_message(originating_peer, received_message.as<item_not_available_message>());
         break;
       case core_message_type_enum::item_ids_inventory_message_type:
-        on_item_ids_inventory_message( originating_peer, received_message.as<item_ids_inventory_message>() );
+        on_item_ids_inventory_message(originating_peer, received_message.as<item_ids_inventory_message>());
         break;
       case core_message_type_enum::closing_connection_message_type:
-        on_closing_connection_message( originating_peer, received_message.as<closing_connection_message>() );
+        on_closing_connection_message(originating_peer, received_message.as<closing_connection_message>());
         break;
       case bts::client::message_type_enum::block_message_type:
-        process_block_message( originating_peer, received_message, message_hash );
+        process_block_message(originating_peer, received_message, message_hash);
         break;
       case core_message_type_enum::current_time_request_message_type:
-        on_current_time_request_message( originating_peer, received_message.as<current_time_request_message>() );
+        on_current_time_request_message(originating_peer, received_message.as<current_time_request_message>());
         break;
       case core_message_type_enum::current_time_reply_message_type:
-        on_current_time_reply_message( originating_peer, received_message.as<current_time_reply_message>() );
+        on_current_time_reply_message(originating_peer, received_message.as<current_time_reply_message>());
         break;
       case core_message_type_enum::check_firewall_message_type:
-        on_check_firewall_message( originating_peer, received_message.as<check_firewall_message>() );
+        on_check_firewall_message(originating_peer, received_message.as<check_firewall_message>());
         break;
       case core_message_type_enum::check_firewall_reply_message_type:
-        on_check_firewall_reply_message( originating_peer, received_message.as<check_firewall_reply_message>() );
+        on_check_firewall_reply_message(originating_peer, received_message.as<check_firewall_reply_message>());
         break;
       case core_message_type_enum::get_current_connections_request_message_type:
-        on_get_current_connections_request_message( originating_peer, received_message.as<get_current_connections_request_message>() );
+        on_get_current_connections_request_message(originating_peer, received_message.as<get_current_connections_request_message>());
         break;
       case core_message_type_enum::get_current_connections_reply_message_type:
-        on_get_current_connections_reply_message( originating_peer, received_message.as<get_current_connections_reply_message>() );
+        on_get_current_connections_reply_message(originating_peer, received_message.as<get_current_connections_reply_message>());
         break;
 
       default:
@@ -1645,7 +1676,7 @@ namespace bts { namespace net { namespace detail {
         // to allow us to add messages in the future
         if (received_message.msg_type < core_message_type_enum::core_message_type_first ||
             received_message.msg_type > core_message_type_enum::core_message_type_last)
-          process_ordinary_message( originating_peer, received_message, message_hash );
+          process_ordinary_message(originating_peer, received_message, message_hash);
         break;
       }
     }
@@ -1869,37 +1900,38 @@ namespace bts { namespace net { namespace detail {
             }
             else
             {
-              // peer is not firwalled, add it to our database
-              fc::ip::endpoint peers_inbound_endpoint( originating_peer->inbound_address, originating_peer->inbound_port );
-              potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( peers_inbound_endpoint );
-              _potential_peer_db.update_entry( updated_peer_record );
+              // peer is not firewalled, add it to our database
+              fc::ip::endpoint peers_inbound_endpoint(originating_peer->inbound_address, originating_peer->inbound_port);
+              potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(peers_inbound_endpoint);
+              _potential_peer_db.update_entry(updated_peer_record);
               originating_peer->is_firewalled = firewalled_state::not_firewalled;
             }
           }
           else
           {
-            dlog( "peer is firewalled: they think their outbound endpoint is ${reported_endpoint}, but I see it as ${actual_endpoint}",
-                 ( "reported_endpoint", fc::ip::endpoint(originating_peer->inbound_address, originating_peer->outbound_port ) )
-                 ( "actual_endpoint", peers_actual_outbound_endpoint ) );
+            dlog("peer is firewalled: they think their outbound endpoint is ${reported_endpoint}, but I see it as ${actual_endpoint}",
+                 ("reported_endpoint", fc::ip::endpoint(originating_peer->inbound_address, originating_peer->outbound_port))
+                 ("actual_endpoint", peers_actual_outbound_endpoint));
             originating_peer->is_firewalled = firewalled_state::firewalled;
           }
 
-          if( !is_accepting_new_connections() )
+          if (!is_accepting_new_connections())
           {
-            connection_rejected_message connection_rejected( _user_agent_string, core_protocol_version,
+            connection_rejected_message connection_rejected(_user_agent_string, core_protocol_version,
                                                             originating_peer->get_socket().remote_endpoint(),
                                                             rejection_reason_code::not_accepting_connections,
-                                                            "not accepting any more incoming connections" );
+                                                            "not accepting any more incoming connections");
             originating_peer->their_state = peer_connection::their_connection_state::connection_rejected;
-            originating_peer->send_message( message(connection_rejected ) );
-            dlog( "Received a hello_message from peer ${peer}, but I'm not accepting any more connections, rejection",
-                 ( "peer", originating_peer->get_remote_endpoint() ) );
+            originating_peer->send_message(message(connection_rejected));
+            dlog("Received a hello_message from peer ${peer}, but I'm not accepting any more connections, rejection",
+                 ("peer", originating_peer->get_remote_endpoint()));
           }
           else
           {
             originating_peer->their_state = peer_connection::their_connection_state::connection_accepted;
-            originating_peer->send_message( message(connection_accepted_message() ) );
-            dlog( "Received a hello_message from peer ${peer}, sending reply to accept connection", ("peer", originating_peer->get_remote_endpoint() ) );
+            originating_peer->send_message(message(connection_accepted_message()));
+            dlog("Received a hello_message from peer ${peer}, sending reply to accept connection", 
+                 ("peer", originating_peer->get_remote_endpoint()));
           }
         }
       }
@@ -1916,32 +1948,44 @@ namespace bts { namespace net { namespace detail {
         //  can't really guard against is if we do a simulatenous open, we
         // probably need to think through that case.  We're not attempting that
         // yet, though, so it's ok to just disconnect here.
-        wlog( "unexpected hello_message from peer, disconnecting" );
-        disconnect_from_peer( originating_peer, "Received a unexpected hello_message" );
+        wlog("unexpected hello_message from peer, disconnecting");
+        disconnect_from_peer(originating_peer, "Received a unexpected hello_message");
       }
     }
 
-    void node_impl::on_connection_accepted_message( peer_connection* originating_peer, const connection_accepted_message& connection_accepted_message_received )
+    void node_impl::on_connection_accepted_message(peer_connection* originating_peer, const connection_accepted_message& connection_accepted_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      dlog( "Received a connection_accepted in response to my \"hello\" from ${peer}", ("peer", originating_peer->get_remote_endpoint() ) );
+      dlog("Received a connection_accepted in response to my \"hello\" from ${peer}", ("peer", originating_peer->get_remote_endpoint()));
       originating_peer->negotiation_status = peer_connection::connection_negotiation_status::peer_connection_accepted;
       originating_peer->our_state = peer_connection::our_connection_state::connection_accepted;
-      originating_peer->send_message( address_request_message() );
+      originating_peer->send_message(address_request_message());
+      fc::time_point now = fc::time_point::now();
+      if (_is_firewalled == firewalled_state::unknown &&
+          _last_firewall_check_message_sent < now - fc::minutes(5) &&
+          originating_peer->core_protocol_version >= 106)
+      {
+        wlog("I don't know if I'm firewalled.  Sending a firewall check message to peer ${peer}",
+             ("peer", originating_peer->get_remote_endpoint()));
+        originating_peer->firewall_check_state = new firewall_check_state_data;
+
+        originating_peer->send_message(check_firewall_message());
+        _last_firewall_check_message_sent = now;
+      }
     }
 
-    void node_impl::on_connection_rejected_message( peer_connection* originating_peer, const connection_rejected_message& connection_rejected_message_received )
+    void node_impl::on_connection_rejected_message(peer_connection* originating_peer, const connection_rejected_message& connection_rejected_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      if( originating_peer->our_state == peer_connection::our_connection_state::just_connected )
+      if (originating_peer->our_state == peer_connection::our_connection_state::just_connected)
       {
-        ilog( "Received a rejection from ${peer} in response to my \"hello\", reason: \"${reason}\"",
-             ( "peer", originating_peer->get_remote_endpoint() )
-             ( "reason", connection_rejected_message_received.reason_string ) );
+        ilog("Received a rejection from ${peer} in response to my \"hello\", reason: \"${reason}\"",
+             ("peer", originating_peer->get_remote_endpoint())
+             ("reason", connection_rejected_message_received.reason_string));
 
-        if( connection_rejected_message_received.reason_code == rejection_reason_code::connected_to_self )
+        if (connection_rejected_message_received.reason_code == rejection_reason_code::connected_to_self)
         {
-          _potential_peer_db.erase( originating_peer->get_socket().remote_endpoint() );
+          _potential_peer_db.erase(originating_peer->get_socket().remote_endpoint());
           move_peer_to_closing_list(originating_peer->shared_from_this());
           originating_peer->close_connection();
         }
@@ -1949,34 +1993,40 @@ namespace bts { namespace net { namespace detail {
         {
           // update our database to record that we were rejected so we won't try to connect again for a while
           // this only happens on connections we originate, so we should already know that peer is not firewalled
-          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( originating_peer->get_socket().remote_endpoint() );
-          updated_peer_record.last_connection_disposition = last_connection_rejected;
-          updated_peer_record.last_connection_attempt_time = fc::time_point::now();
-          _potential_peer_db.update_entry( updated_peer_record );
+          fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(originating_peer->get_socket().remote_endpoint());
+          if (updated_peer_record)
+          {
+            updated_peer_record->last_connection_disposition = last_connection_rejected;
+            updated_peer_record->last_connection_attempt_time = fc::time_point::now();
+            _potential_peer_db.update_entry(*updated_peer_record);
+          }
         }
 
         originating_peer->negotiation_status = peer_connection::connection_negotiation_status::peer_connection_rejected;
         originating_peer->our_state = peer_connection::our_connection_state::connection_rejected;
-        originating_peer->send_message( address_request_message() );
+        originating_peer->send_message(address_request_message());
       }
       else
         FC_THROW( "unexpected connection_rejected_message from peer" );
     }
 
-    void node_impl::on_address_request_message( peer_connection* originating_peer, const address_request_message& address_request_message_received )
+    void node_impl::on_address_request_message(peer_connection* originating_peer, const address_request_message& address_request_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      dlog( "Received an address request message" );
+      dlog("Received an address request message");
 
       address_message reply;
       if (!_peer_advertising_disabled)
       {
-        reply.addresses.reserve( _active_connections.size()  );
-        for( const peer_connection_ptr& active_peer : _active_connections )
+        reply.addresses.reserve(_active_connections.size());
+        for (const peer_connection_ptr& active_peer : _active_connections)
         {
-          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *active_peer->get_remote_endpoint() );
-          updated_peer_record.last_seen_time = fc::time_point::now();
-          _potential_peer_db.update_entry(updated_peer_record);
+          fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(*active_peer->get_remote_endpoint());
+          if (updated_peer_record)
+          {
+            updated_peer_record->last_seen_time = fc::time_point::now();
+            _potential_peer_db.update_entry(*updated_peer_record);
+          }
 
           reply.addresses.emplace_back(address_info(*active_peer->get_remote_endpoint(),
                                                     fc::time_point::now(),
@@ -1987,42 +2037,44 @@ namespace bts { namespace net { namespace detail {
         }
       }
       //for( const potential_peer_record& record : _potential_peer_db )
-      originating_peer->send_message( reply );
+      originating_peer->send_message(reply);
     }
 
-    void node_impl::on_address_message( peer_connection* originating_peer, const address_message& address_message_received )
+    void node_impl::on_address_message(peer_connection* originating_peer, const address_message& address_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      dlog( "Received an address message containing ${size} addresses", ("size", address_message_received.addresses.size() ) );
-      for( const address_info& address : address_message_received.addresses )
+      dlog("Received an address message containing ${size} addresses", ("size", address_message_received.addresses.size()));
+      for (const address_info& address : address_message_received.addresses)
       {
-        dlog( "    ${endpoint} last seen ${time}", ("endpoint", address.remote_endpoint )("time", address.last_seen_time ) );
+        dlog("    ${endpoint} last seen ${time}", ("endpoint", address.remote_endpoint)("time", address.last_seen_time));
       }
       std::vector<bts::net::address_info> updated_addresses = address_message_received.addresses;
-      for( address_info& address : updated_addresses )
+      for (address_info& address : updated_addresses)
         address.last_seen_time = fc::time_point_sec(fc::time_point::now());
-      bool new_information_received = merge_address_info_with_potential_peer_database( updated_addresses );
-      if( new_information_received )
+      bool new_information_received = merge_address_info_with_potential_peer_database(updated_addresses);
+      if (new_information_received)
         trigger_p2p_network_connect_loop();
 
       if (_handshaking_connections.find(originating_peer->shared_from_this()) != _handshaking_connections.end())
       {
         // if we were handshaking, we need to continue with the next step in handshaking (which is either
         // ending handshaking and starting synchronization or disconnecting)
-        if( originating_peer->our_state == peer_connection::our_connection_state::connection_rejected )
-          disconnect_from_peer( originating_peer, "You rejected my connection request (hello message) so I'm disconnecting" );
-        else if( originating_peer->their_state == peer_connection::their_connection_state::connection_rejected )
-          disconnect_from_peer( originating_peer, "I rejected your connection request (hello message) so I'm disconnecting" );
+        if( originating_peer->our_state == peer_connection::our_connection_state::connection_rejected)
+          disconnect_from_peer(originating_peer, "You rejected my connection request (hello message) so I'm disconnecting");
+        else if (originating_peer->their_state == peer_connection::their_connection_state::connection_rejected)
+          disconnect_from_peer(originating_peer, "I rejected your connection request (hello message) so I'm disconnecting");
         else
         {
-          // not filtering firewalled nodes just incase they have working UPNP or port mapping
-          // TODO: add enhanced firewall detection code
-          // if( originating_peer->is_firewalled == firewalled_state::not_firewalled)
+          fc::optional<fc::ip::endpoint> inbound_endpoint = originating_peer->get_endpoint_for_connecting();
+          if (inbound_endpoint)
           {
             // mark the connection as successful in the database
-            potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *originating_peer->get_remote_endpoint() );
-            updated_peer_record.last_connection_disposition = last_connection_succeeded;
-            _potential_peer_db.update_entry( updated_peer_record );
+            fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(*inbound_endpoint);
+            if (updated_peer_record)
+            {
+              updated_peer_record->last_connection_disposition = last_connection_succeeded;
+              _potential_peer_db.update_entry(*updated_peer_record);
+            }
           }
 
           originating_peer->negotiation_status = peer_connection::connection_negotiation_status::negotiation_complete;
@@ -2034,8 +2086,8 @@ namespace bts { namespace net { namespace detail {
       // we've processed it, there's nothing else to do
     }
 
-    void node_impl::on_fetch_blockchain_item_ids_message( peer_connection* originating_peer,
-                                                          const fetch_blockchain_item_ids_message& fetch_blockchain_item_ids_message_received )
+    void node_impl::on_fetch_blockchain_item_ids_message(peer_connection* originating_peer,
+                                                         const fetch_blockchain_item_ids_message& fetch_blockchain_item_ids_message_received)
     {
       VERIFY_CORRECT_THREAD();
       item_id peers_last_item_seen;
@@ -2070,36 +2122,36 @@ namespace bts { namespace net { namespace detail {
       else
         originating_peer->peer_needs_sync_items_from_us = true;
 
-      if( !originating_peer->peer_needs_sync_items_from_us )
+      if (!originating_peer->peer_needs_sync_items_from_us)
       {
-        dlog( "sync: peer is already in sync with us" );
+        dlog("sync: peer is already in sync with us");
         // if we thought we had all the items this peer had, but now it turns out that we don't
         // have the last item it requested to send from,
         // we need to kick off another round of synchronization
-        if( !originating_peer->we_need_sync_items_from_peer &&
+        if (!originating_peer->we_need_sync_items_from_peer &&
             !fetch_blockchain_item_ids_message_received.blockchain_synopsis.empty() &&
-            !_delegate->has_item(peers_last_item_seen) )
+            !_delegate->has_item(peers_last_item_seen))
         {
-          dlog( "sync: restarting sync with peer ${peer}", ("peer", originating_peer->get_remote_endpoint() ) );
-          start_synchronizing_with_peer( originating_peer->shared_from_this() );
+          dlog("sync: restarting sync with peer ${peer}", ("peer", originating_peer->get_remote_endpoint()));
+          start_synchronizing_with_peer(originating_peer->shared_from_this());
         }
       }
       else
       {
         //dlog( "sync: peer is out of sync, sending peer ${count} items ids: ${item_ids}", ("count", reply_message.item_hashes_available.size() )("item_ids", reply_message.item_hashes_available ) );
-        dlog( "sync: peer is out of sync, sending peer ${count} items ids: first: ${first_item_id}, last: ${last_item_id}",
-              ("count", reply_message.item_hashes_available.size())
-              ("first_item_id", reply_message.item_hashes_available.front())
-              ("last_item_id", reply_message.item_hashes_available.back()));
-        if( !originating_peer->we_need_sync_items_from_peer &&
+        dlog("sync: peer is out of sync, sending peer ${count} items ids: first: ${first_item_id}, last: ${last_item_id}",
+             ("count", reply_message.item_hashes_available.size())
+             ("first_item_id", reply_message.item_hashes_available.front())
+             ("last_item_id", reply_message.item_hashes_available.back()));
+        if (!originating_peer->we_need_sync_items_from_peer &&
             !fetch_blockchain_item_ids_message_received.blockchain_synopsis.empty() &&
-            !_delegate->has_item( peers_last_item_seen ) )
+            !_delegate->has_item(peers_last_item_seen))
         {
-          dlog( "sync: restarting sync with peer ${peer}", ("peer", originating_peer->get_remote_endpoint() ) );
-          start_synchronizing_with_peer( originating_peer->shared_from_this() );
+          dlog("sync: restarting sync with peer ${peer}", ("peer", originating_peer->get_remote_endpoint()));
+          start_synchronizing_with_peer(originating_peer->shared_from_this());
         }
       }
-      originating_peer->send_message( reply_message );
+      originating_peer->send_message(reply_message);
 
       if (disconnect_from_inhibited_peer)
         {
@@ -2108,24 +2160,24 @@ namespace bts { namespace net { namespace detail {
         return;
         }
 
-      if( originating_peer->direction == peer_connection_direction::inbound &&
-          _handshaking_connections.find( originating_peer->shared_from_this() ) != _handshaking_connections.end() )
+      if (originating_peer->direction == peer_connection_direction::inbound &&
+          _handshaking_connections.find(originating_peer->shared_from_this()) != _handshaking_connections.end())
       {
         // handshaking is done, move the connection to fully active status and start synchronizing
-        dlog( "peer ${endpoint} which was handshaking with us has started synchronizing with us, start syncing with it",
-             ( "endpoint", originating_peer->get_remote_endpoint() ) );
-
-        if( originating_peer->is_firewalled == firewalled_state::not_firewalled )
+        dlog("peer ${endpoint} which was handshaking with us has started synchronizing with us, start syncing with it",
+             ("endpoint", originating_peer->get_remote_endpoint()));
+        fc::optional<fc::ip::endpoint> inbound_endpoint = originating_peer->get_endpoint_for_connecting();
+        if (inbound_endpoint)
         {
           // mark the connection as successful in the database
-          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *originating_peer->get_remote_endpoint() );
+          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(*inbound_endpoint);
           updated_peer_record.last_connection_disposition = last_connection_succeeded;
-          _potential_peer_db.update_entry( updated_peer_record );
+          _potential_peer_db.update_entry(updated_peer_record);
         }
 
         // transition it to our active list
         move_peer_to_active_list(originating_peer->shared_from_this());
-        new_peer_just_added( originating_peer->shared_from_this() );
+        new_peer_just_added(originating_peer->shared_from_this());
       }
     }
 
@@ -2245,39 +2297,41 @@ namespace bts { namespace net { namespace detail {
                                                      blockchain_item_ids_inventory_message_received.item_hashes_available.end() );
         originating_peer->number_of_unfetched_item_ids = blockchain_item_ids_inventory_message_received.total_remaining_item_count;
         // flush any items this peer sent us that we've already received and processed from another peer
-        if( !item_hashes_received.empty() &&
-            originating_peer->ids_of_items_to_get.empty() )
+        if (!item_hashes_received.empty() &&
+            originating_peer->ids_of_items_to_get.empty())
         {
           bool is_first_item_for_other_peer = false;
-          for( const peer_connection_ptr& peer : _active_connections )
-            if( peer != originating_peer->shared_from_this() &&
+          for (const peer_connection_ptr& peer : _active_connections)
+            if (peer != originating_peer->shared_from_this() &&
                 !peer->ids_of_items_to_get.empty() &&
-                peer->ids_of_items_to_get.front() == blockchain_item_ids_inventory_message_received.item_hashes_available.front() )
+                peer->ids_of_items_to_get.front() == blockchain_item_ids_inventory_message_received.item_hashes_available.front())
             {
-              dlog( "The item ${newitem} is the first item for peer ${peer}",
-                   ( "newitem", blockchain_item_ids_inventory_message_received.item_hashes_available.front() )
-                   ( "peer", peer->get_remote_endpoint() ) );
+              dlog("The item ${newitem} is the first item for peer ${peer}",
+                   ("newitem", blockchain_item_ids_inventory_message_received.item_hashes_available.front())
+                   ("peer", peer->get_remote_endpoint()));
               is_first_item_for_other_peer = true;
               break;
             }
-          dlog( "is_first_item_for_other_peer: ${is_first}.  item_hashes_received.size() = ${size}",("is_first", is_first_item_for_other_peer )("size", item_hashes_received.size() ) );
-          if( !is_first_item_for_other_peer )
+          dlog("is_first_item_for_other_peer: ${is_first}.  item_hashes_received.size() = ${size}",
+               ("is_first", is_first_item_for_other_peer)("size", item_hashes_received.size()));
+          if (!is_first_item_for_other_peer)
           {
-            while ( !item_hashes_received.empty() &&
-                   _delegate->has_item( item_id(blockchain_item_ids_inventory_message_received.item_type,
-                                               item_hashes_received.front() ) ) )
+            while (!item_hashes_received.empty() &&
+                   _delegate->has_item(item_id(blockchain_item_ids_inventory_message_received.item_type,
+                                               item_hashes_received.front())))
             {
-              assert( item_hashes_received.front() != item_hash_t() );
+              assert(item_hashes_received.front() != item_hash_t());
               originating_peer->last_block_delegate_has_seen = item_hashes_received.front();
               ++originating_peer->last_block_number_delegate_has_seen;
               originating_peer->last_block_time_delegate_has_seen = _delegate->get_block_time(item_hashes_received.front());
-              dlog( "popping item because delegate has already seen it.  peer's last block the delegate has seen is now ${block_id} (${block_num})", ("block_id", originating_peer->last_block_delegate_has_seen )("block_num", originating_peer->last_block_number_delegate_has_seen ) );
+              dlog("popping item because delegate has already seen it.  peer's last block the delegate has seen is now ${block_id} (${block_num})", 
+                   ("block_id", originating_peer->last_block_delegate_has_seen )("block_num", originating_peer->last_block_number_delegate_has_seen));
               item_hashes_received.pop_front();
             }
-            dlog( "after removing all items we have already seen, item_hashes_received.size() = ${size}", ("size", item_hashes_received.size() ) );
+            dlog("after removing all items we have already seen, item_hashes_received.size() = ${size}", ("size", item_hashes_received.size()));
           }
         }
-        else if( !item_hashes_received.empty() )
+        else if (!item_hashes_received.empty())
         {
           // we received a list of items and we already have a list of items to fetch from this peer.
           // In the normal case, this list will immediately follow the existing list, meaning the
@@ -2285,29 +2339,29 @@ namespace bts { namespace net { namespace detail {
 
           // In the much less likely case, we've received a partial list of items from the peer, then
           // the peer switched forks before sending us the remaining list.  In this case, the first
-          // hash in the new list may not be the last hash in the existing list ( it may be earlier, or
+          // hash in the new list may not be the last hash in the existing list (it may be earlier, or
           // it may not exist at all.
 
           // In either case, pop items off the back of our existing list until we find our first
           // item, then append our list.
-          while ( !originating_peer->ids_of_items_to_get.empty() )
+          while (!originating_peer->ids_of_items_to_get.empty())
           {
-            if( item_hashes_received.front() != originating_peer->ids_of_items_to_get.back() )
+            if (item_hashes_received.front() != originating_peer->ids_of_items_to_get.back())
               originating_peer->ids_of_items_to_get.pop_back();
             else
               break;
           }
-          if( originating_peer->ids_of_items_to_get.empty() )
+          if (originating_peer->ids_of_items_to_get.empty())
           {
             // this happens when the peer has switched forks between the last inventory message and
             // this one, and there weren't any unfetched items in common
             // We don't know where in the blockchain the new front() actually falls, all we can
             // expect is that it is a block that we knew about because it should be one of the
             // blocks we sent in the initial synopsis.
-            assert( _delegate->has_item(item_id(_sync_item_type, item_hashes_received.front() ) ) );
+            assert(_delegate->has_item(item_id(_sync_item_type, item_hashes_received.front())));
             originating_peer->last_block_delegate_has_seen = item_hashes_received.front();
-            originating_peer->last_block_number_delegate_has_seen = _delegate->get_block_number( item_hashes_received.front() );
-            originating_peer->last_block_time_delegate_has_seen = _delegate->get_block_time( item_hashes_received.front() );
+            originating_peer->last_block_number_delegate_has_seen = _delegate->get_block_number(item_hashes_received.front());
+            originating_peer->last_block_time_delegate_has_seen = _delegate->get_block_time(item_hashes_received.front());
             item_hashes_received.pop_front();
           }
           else
@@ -2317,11 +2371,11 @@ namespace bts { namespace net { namespace detail {
           }
         }
 
-        if( !item_hashes_received.empty() && !originating_peer->ids_of_items_to_get.empty() )
-          assert( item_hashes_received.front() != originating_peer->ids_of_items_to_get.back() );
+        if (!item_hashes_received.empty() && !originating_peer->ids_of_items_to_get.empty())
+          assert(item_hashes_received.front() != originating_peer->ids_of_items_to_get.back());
 
         // append the remaining items to the peer's list
-        boost::push_back( originating_peer->ids_of_items_to_get, item_hashes_received );
+        boost::push_back(originating_peer->ids_of_items_to_get, item_hashes_received);
 
         originating_peer->number_of_unfetched_item_ids = blockchain_item_ids_inventory_message_received.total_remaining_item_count;
 
@@ -2347,34 +2401,31 @@ namespace bts { namespace net { namespace detail {
         }
 
         uint32_t new_number_of_unfetched_items = calculate_unsynced_block_count_from_all_peers();
-        if( new_number_of_unfetched_items != _total_number_of_unfetched_items )
-          _delegate->sync_status( blockchain_item_ids_inventory_message_received.item_type,
-                                 new_number_of_unfetched_items );
+        if (new_number_of_unfetched_items != _total_number_of_unfetched_items)
+          _delegate->sync_status(blockchain_item_ids_inventory_message_received.item_type,
+                                 new_number_of_unfetched_items);
         _total_number_of_unfetched_items = new_number_of_unfetched_items;
 
-        if( blockchain_item_ids_inventory_message_received.total_remaining_item_count != 0 )
+        if (blockchain_item_ids_inventory_message_received.total_remaining_item_count != 0)
         {
-          // the peer hasn't sent us all the items it knows about.  We need to ask it for more.
-          if( !originating_peer->ids_of_items_to_get.empty() )
+          // the peer hasn't sent us all the items it knows about.
+          if (originating_peer->ids_of_items_to_get.size() > BTS_NET_MIN_BLOCK_IDS_TO_PREFETCH)
           {
-            // if we have a list of sync items, keep asking for more until we get to the end of the list
-            fetch_next_batch_of_item_ids_from_peer( originating_peer );
+            // we have a good number of item ids from this peer, start fetching blocks from it;
+            // we'll switch back later to finish the job.
+            trigger_fetch_sync_items_loop();
           }
           else
           {
-            // If we get here, we the peer has sent us a non-empty list of items, but we have all of them
-            // already.
-            // Most likely, that means that some of the next blocks in sequence will be ones we have
-            // already, but we still need to ask the client for them in order.
-            // (If we didn't have to handle forks, we could just jump to our last seen block,
-            // but in the case where the client is telling us about a fork, we need to keep asking them
-            // for sequential blocks)
-            fetch_next_batch_of_item_ids_from_peer( originating_peer );
+            // keep fetching the peer's list of sync items until we get enough to switch into block-
+            // fetchimg mode
+            fetch_next_batch_of_item_ids_from_peer(originating_peer);
           }
         }
         else
         {
-          if( !originating_peer->ids_of_items_to_get.empty() )
+          // the peer has told us about all of the items it knows
+          if (!originating_peer->ids_of_items_to_get.empty())
           {
             // we now know about all of the items the peer knows about, and there are some items on the list
             // that we should try to fetch.  Kick off the fetch loop.
@@ -2385,17 +2436,17 @@ namespace bts { namespace net { namespace detail {
             // If we get here, the peer has sent us a non-empty list of items, but we have already
             // received all of the items from other peers.  Send a new request to the peer to
             // see if we're really in sync
-            fetch_next_batch_of_item_ids_from_peer( originating_peer );
+            fetch_next_batch_of_item_ids_from_peer(originating_peer);
           }
         }
       }
       else
       {
-        wlog( "sync: received a list of sync items available, but I didn't ask for any!" );
+        wlog("sync: received a list of sync items available, but I didn't ask for any!");
       }
     }
 
-    void node_impl::on_fetch_items_message( peer_connection* originating_peer, const fetch_items_message& fetch_items_message_received )
+    void node_impl::on_fetch_items_message(peer_connection* originating_peer, const fetch_items_message& fetch_items_message_received)
     {
       VERIFY_CORRECT_THREAD();
       dlog( "received items request for ids ${ids} of type ${type} from peer ${endpoint}",
@@ -2454,48 +2505,47 @@ namespace bts { namespace net { namespace detail {
         originating_peer->last_block_time_delegate_has_seen = _delegate->get_block_time(block.block_id);
       }
 
-      for( const message& reply : reply_messages )
-        originating_peer->send_message( reply );
+      for (const message& reply : reply_messages)
+        originating_peer->send_message(reply);
     }
 
     void node_impl::on_item_not_available_message( peer_connection* originating_peer, const item_not_available_message& item_not_available_message_received )
     {
       VERIFY_CORRECT_THREAD();
       const item_id& requested_item = item_not_available_message_received.requested_item;
-      auto regular_item_iter = originating_peer->items_requested_from_peer.find( requested_item );
-      if( regular_item_iter != originating_peer->items_requested_from_peer.end() )
+      auto regular_item_iter = originating_peer->items_requested_from_peer.find(requested_item);
+      if (regular_item_iter != originating_peer->items_requested_from_peer.end())
       {
         originating_peer->items_requested_from_peer.erase( regular_item_iter );
         originating_peer->inventory_peer_advertised_to_us.erase( requested_item );
         if (is_item_in_any_peers_inventory(requested_item))
-        {
           _items_to_fetch.insert(prioritized_item_id(requested_item, _items_to_fetch_sequence_counter++));
-        }
-        wlog( "Peer doesn't have the requested item." );
+        wlog("Peer doesn't have the requested item.");
         trigger_fetch_items_loop();
         return;
         // TODO: reschedule fetching this item from a different peer
       }
 
-      auto sync_item_iter = originating_peer->sync_items_requested_from_peer.find( requested_item );
-      if( sync_item_iter != originating_peer->sync_items_requested_from_peer.end() )
+      auto sync_item_iter = originating_peer->sync_items_requested_from_peer.find(requested_item);
+      if (sync_item_iter != originating_peer->sync_items_requested_from_peer.end())
       {
-        originating_peer->sync_items_requested_from_peer.erase( sync_item_iter );
+        originating_peer->sync_items_requested_from_peer.erase(sync_item_iter);
 
-        if( originating_peer->peer_needs_sync_items_from_us )
+        if (originating_peer->peer_needs_sync_items_from_us)
           originating_peer->inhibit_fetching_sync_blocks = true;
         else
           disconnect_from_peer(originating_peer, "You are missing a sync item you claim to have, your database is probably corrupted. Try --rebuild-index.",true,
-                               fc::exception(FC_LOG_MESSAGE(error,"You are missing a sync item you claim to have, your database is probably corrupted. Try --rebuild-index.",("item_id",requested_item))));
-        wlog( "Peer doesn't have the requested sync item.  This really shouldn't happen" );
+                               fc::exception(FC_LOG_MESSAGE(error,"You are missing a sync item you claim to have, your database is probably corrupted. Try --rebuild-index.",
+                               ("item_id",requested_item))));
+        wlog("Peer doesn't have the requested sync item.  This really shouldn't happen");
         trigger_fetch_sync_items_loop();
         return;
       }
 
-      dlog( "Peer doesn't have an item we're looking for, which is fine because we weren't looking for it" );
+      dlog("Peer doesn't have an item we're looking for, which is fine because we weren't looking for it");
     }
 
-    void node_impl::on_item_ids_inventory_message( peer_connection* originating_peer, const item_ids_inventory_message& item_ids_inventory_message_received )
+    void node_impl::on_item_ids_inventory_message(peer_connection* originating_peer, const item_ids_inventory_message& item_ids_inventory_message_received)
     {
       VERIFY_CORRECT_THREAD();
 
@@ -2506,17 +2556,17 @@ namespace bts { namespace net { namespace detail {
            ( "count", item_ids_inventory_message_received.item_hashes_available.size() )("endpoint", originating_peer->get_remote_endpoint() ) );
       for( const item_hash_t& item_hash : item_ids_inventory_message_received.item_hashes_available )
       {
-        item_id advertised_item_id( item_ids_inventory_message_received.item_type, item_hash );
+        item_id advertised_item_id(item_ids_inventory_message_received.item_type, item_hash);
         bool we_advertised_this_item_to_a_peer = false;
         bool we_requested_this_item_from_a_peer = false;
-        for( const peer_connection_ptr peer : _active_connections )
+        for (const peer_connection_ptr peer : _active_connections)
         {
-          if( peer->inventory_advertised_to_peer.find(advertised_item_id) != peer->inventory_advertised_to_peer.end() )
+          if (peer->inventory_advertised_to_peer.find(advertised_item_id) != peer->inventory_advertised_to_peer.end())
           {
             we_advertised_this_item_to_a_peer = true;
             break;
           }
-          if( peer->items_requested_from_peer.find(advertised_item_id) != peer->items_requested_from_peer.end() )
+          if (peer->items_requested_from_peer.find(advertised_item_id) != peer->items_requested_from_peer.end())
             we_requested_this_item_from_a_peer = true;
         }
 
@@ -2531,13 +2581,13 @@ namespace bts { namespace net { namespace detail {
               originating_peer->is_inventory_advertised_to_us_list_full())
             break;
           originating_peer->inventory_peer_advertised_to_us.insert(peer_connection::timestamped_item_id(advertised_item_id, fc::time_point::now()));
-          if( !we_requested_this_item_from_a_peer )
+          if (!we_requested_this_item_from_a_peer)
           {
             auto insert_result = _items_to_fetch.insert(prioritized_item_id(advertised_item_id, _items_to_fetch_sequence_counter++));
             if (insert_result.second)
             {
-              dlog( "adding item ${item_hash} from inventory message to our list of items to fetch",
-                   ( "item_hash", item_hash ) );
+              dlog("adding item ${item_hash} from inventory message to our list of items to fetch",
+                   ("item_hash", item_hash));
               trigger_fetch_items_loop();
             }
           }
@@ -2577,53 +2627,81 @@ namespace bts { namespace net { namespace detail {
         originating_peer->close_connection();
     }
 
-    void node_impl::on_connection_closed( peer_connection* originating_peer )
+    void node_impl::on_connection_closed(peer_connection* originating_peer)
     {
       VERIFY_CORRECT_THREAD();
       peer_connection_ptr originating_peer_ptr = originating_peer->shared_from_this();
       _rate_limiter.remove_tcp_socket( &originating_peer->get_socket() );
 
-
       // if we closed the connection (due to timeout or handshake failure), we should have recorded an
       // error message to store in the peer database when we closed the connection
-      if (originating_peer_ptr->connection_closed_error && originating_peer_ptr->get_remote_endpoint())
+      fc::optional<fc::ip::endpoint> inbound_endpoint = originating_peer->get_endpoint_for_connecting();
+      if (originating_peer->connection_closed_error && inbound_endpoint)
       {
-        potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(*originating_peer_ptr->get_remote_endpoint());
-        updated_peer_record.last_error = *originating_peer->connection_closed_error;
-        _potential_peer_db.update_entry( updated_peer_record );
-      }
-
-      _closing_connections.erase( originating_peer_ptr );
-      _handshaking_connections.erase( originating_peer_ptr );
-      _terminating_connections.erase( originating_peer_ptr );
-      if( _active_connections.find(originating_peer_ptr) != _active_connections.end() )
-      {
-        _active_connections.erase( originating_peer_ptr );
-
-        if (originating_peer_ptr->get_remote_endpoint())
+        fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(*inbound_endpoint);
+        if (updated_peer_record)
         {
-          potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *originating_peer_ptr->get_remote_endpoint() );
-          updated_peer_record.last_seen_time = fc::time_point::now();
-          _potential_peer_db.update_entry( updated_peer_record );
+          updated_peer_record->last_error = *originating_peer->connection_closed_error;
+          _potential_peer_db.update_entry(*updated_peer_record);
         }
       }
 
-      ilog( "Remote peer ${endpoint} closed their connection to us", ("endpoint", originating_peer->get_remote_endpoint() ) );
+      _closing_connections.erase(originating_peer_ptr);
+      _handshaking_connections.erase(originating_peer_ptr);
+      _terminating_connections.erase(originating_peer_ptr);
+      if (_active_connections.find(originating_peer_ptr) != _active_connections.end())
+      {
+        _active_connections.erase(originating_peer_ptr);
+
+        if (originating_peer_ptr->get_remote_endpoint())
+        {
+          fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(*inbound_endpoint);
+          if (updated_peer_record)
+          {
+            updated_peer_record->last_seen_time = fc::time_point::now();
+            _potential_peer_db.update_entry(*updated_peer_record);
+          }
+        }
+      }
+
+      ilog("Remote peer ${endpoint} closed their connection to us", ("endpoint", originating_peer->get_remote_endpoint()));
       display_current_connections();
       trigger_p2p_network_connect_loop();
 
+      // notify the node delegate so it can update the display
       if( _active_connections.size() != _last_reported_number_of_connections )
       {
         _last_reported_number_of_connections = (uint32_t)_active_connections.size();
         _delegate->connection_count_changed( _last_reported_number_of_connections );
       }
 
+      // if we had delegated a firewall check to this peer, send it to another peer
+      if (originating_peer->firewall_check_state)
+      {
+        if (originating_peer->firewall_check_state->requesting_peer != node_id_t())
+        {
+          // it's a check we're doing for another node
+          firewall_check_state_data* firewall_check_state = originating_peer->firewall_check_state;
+          originating_peer->firewall_check_state = nullptr;
+          forward_firewall_check_to_next_available_peer(firewall_check_state);
+        }
+        else
+        {
+          // we were asking them to check whether we're firewalled.  we'll just let it 
+          // go for now
+          delete originating_peer->firewall_check_state;
+        }
+      }
+
+      // if we had requested any sync or regular items from this peer that we haven't
+      // received yet, reschedule them to be fetched from another peer
       if (!originating_peer->sync_items_requested_from_peer.empty())
       {
         for (auto sync_item_and_time : originating_peer->sync_items_requested_from_peer)
           _active_sync_requests.erase(sync_item_and_time.first.item_hash);
         trigger_fetch_sync_items_loop();
       }
+
       if (!originating_peer->items_requested_from_peer.empty())
       {
         for (auto item_and_time : originating_peer->items_requested_from_peer)
@@ -2633,6 +2711,7 @@ namespace bts { namespace net { namespace detail {
         }
         trigger_fetch_items_loop();
       }
+
       schedule_peer_for_deletion(originating_peer_ptr);
     }
 
@@ -3054,21 +3133,21 @@ namespace bts { namespace net { namespace detail {
         disconnect_from_peer(peer.get(), disconnect_reason, true, *disconnect_exception);
       }
     }
-    void node_impl::process_block_message( peer_connection* originating_peer,
-                                           const message& message_to_process,
-                                           const message_hash_type& message_hash )
+    void node_impl::process_block_message(peer_connection* originating_peer,
+                                          const message& message_to_process,
+                                          const message_hash_type& message_hash)
     {
       VERIFY_CORRECT_THREAD();
       // find out whether we requested this item while we were synchronizing or during normal operation
       // (it's possible that we request an item during normal operation and then get kicked into sync
       // mode before we receive and process the item.  In that case, we should process the item as a normal
       // item to avoid confusing the sync code)
-      bts::client::block_message block_message_to_process( message_to_process.as<bts::client::block_message>() );
-      auto item_iter = originating_peer->items_requested_from_peer.find( item_id(bts::client::block_message_type, message_hash ) );
-      if( item_iter != originating_peer->items_requested_from_peer.end() )
+      bts::client::block_message block_message_to_process(message_to_process.as<bts::client::block_message>());
+      auto item_iter = originating_peer->items_requested_from_peer.find(item_id(bts::client::block_message_type, message_hash));
+      if (item_iter != originating_peer->items_requested_from_peer.end())
       {
-        originating_peer->items_requested_from_peer.erase( item_iter );
-        process_block_during_normal_operation( originating_peer, block_message_to_process, message_hash );
+        originating_peer->items_requested_from_peer.erase(item_iter);
+        process_block_during_normal_operation(originating_peer, block_message_to_process, message_hash);
         if (originating_peer->idle())
           trigger_fetch_items_loop();
         return;
@@ -3076,15 +3155,23 @@ namespace bts { namespace net { namespace detail {
       else
       {
         // not during normal operation.  see if we requested it during sync
-        auto sync_item_iter = originating_peer->sync_items_requested_from_peer.find( item_id(bts::client::block_message_type,
-                                                                                             block_message_to_process.block_id ) );
-        if( sync_item_iter != originating_peer->sync_items_requested_from_peer.end() )
+        auto sync_item_iter = originating_peer->sync_items_requested_from_peer.find(item_id(bts::client::block_message_type,
+                                                                                            block_message_to_process.block_id));
+        if (sync_item_iter != originating_peer->sync_items_requested_from_peer.end())
         {
-          originating_peer->sync_items_requested_from_peer.erase( sync_item_iter );
+          originating_peer->sync_items_requested_from_peer.erase(sync_item_iter);
           _active_sync_requests.erase(block_message_to_process.block_id);
-          process_block_during_sync( originating_peer, block_message_to_process, message_hash );
+          process_block_during_sync(originating_peer, block_message_to_process, message_hash);
           if (originating_peer->idle())
-            trigger_fetch_sync_items_loop();
+          {
+            // we have finished fetching a batch of items, so we either need to grab another batch of items
+            // or we need to get another list of item ids.
+            if (originating_peer->number_of_unfetched_item_ids > 0 &&
+                originating_peer->ids_of_items_to_get.size() < BTS_NET_MIN_BLOCK_IDS_TO_PREFETCH)
+              fetch_next_batch_of_item_ids_from_peer(originating_peer);
+            else
+              trigger_fetch_sync_items_loop();
+          }
           return;
         }
       }
@@ -3124,22 +3211,172 @@ namespace bts { namespace net { namespace detail {
       // TODO
     }
 
+    void node_impl::forward_firewall_check_to_next_available_peer(firewall_check_state_data* firewall_check_state)
+    {
+      for (const peer_connection_ptr& peer : _active_connections)
+      {
+        if (firewall_check_state->expected_node_id != peer->node_id && // it's not the node who is asking us to test
+            !peer->firewall_check_state && // the peer isn't already performing a check for another node
+            firewall_check_state->nodes_already_tested.find(peer->node_id) == firewall_check_state->nodes_already_tested.end() &&
+            peer->core_protocol_version >= 106)
+        {
+          wlog("forwarding firewall check for node ${to_check} to peer ${checker}",
+               ("to_check", firewall_check_state->endpoint_to_test)
+               ("checker", peer->get_remote_endpoint()));
+          firewall_check_state->nodes_already_tested.insert(peer->node_id);
+          peer->firewall_check_state = firewall_check_state;
+          check_firewall_message check_request;
+          check_request.endpoint_to_check = firewall_check_state->endpoint_to_test;
+          check_request.node_id = firewall_check_state->expected_node_id;
+          peer->send_message(check_request);
+          return;
+        }
+      }
+      wlog("Unable to forward firewall check for node ${to_check} to any other peers, returning 'unable'",
+           ("to_check", firewall_check_state->endpoint_to_test));
+
+      peer_connection_ptr originating_peer = get_peer_by_node_id(firewall_check_state->expected_node_id);
+      if (originating_peer)
+      {
+        check_firewall_reply_message reply;
+        reply.node_id = firewall_check_state->expected_node_id;
+        reply.endpoint_checked = firewall_check_state->endpoint_to_test;
+        reply.result = firewall_check_result::unable_to_check;
+        originating_peer->send_message(reply);
+      }
+      delete firewall_check_state;
+    }
+
     void node_impl::on_check_firewall_message(peer_connection* originating_peer,
                                               const check_firewall_message& check_firewall_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      // TODO
-      check_firewall_reply_message reply;
-      reply.node_id = check_firewall_message_received.node_id;
-      reply.endpoint_checked = check_firewall_message_received.endpoint_to_check;
-      reply.result = firewall_check_result::unable_to_check;
+
+      if (check_firewall_message_received.node_id == node_id_t() &&
+          check_firewall_message_received.endpoint_to_check == fc::ip::endpoint())
+      {
+        // originating_peer is asking us to test whether it is firewalled
+        // we're not going to try to connect back to the originating peer directly,
+        // instead, we're going to coordinate requests by asking some of our peers
+        // to try to connect to the originating peer, and relay the results back
+        wlog("Peer ${peer} wants us to check whether it is firewalled", ("peer", originating_peer->get_remote_endpoint()));
+        firewall_check_state_data* firewall_check_state = new firewall_check_state_data;
+        // if they are using the same inbound and outbound port, try connecting to their outbound endpoint.
+        // if they are using a different inbound port, use their outbound address but the inbound port they reported
+        fc::ip::endpoint endpoint_to_check = originating_peer->get_socket().remote_endpoint();
+        if (originating_peer->inbound_port != originating_peer->outbound_port)
+          endpoint_to_check = fc::ip::endpoint(endpoint_to_check.get_address(), originating_peer->inbound_port);
+        firewall_check_state->endpoint_to_test = endpoint_to_check;
+        firewall_check_state->expected_node_id = originating_peer->node_id;
+        firewall_check_state->requesting_peer = originating_peer->node_id;
+
+        forward_firewall_check_to_next_available_peer(firewall_check_state);
+      }
+      else
+      {
+        // we're being asked to check another node
+        // first, find out if we're currently connected to that node.  If we are, we 
+        // can't perform the test
+        if (is_already_connected_to_id(check_firewall_message_received.node_id) ||
+            is_connection_to_endpoint_in_progress(check_firewall_message_received.endpoint_to_check))            
+        {
+          check_firewall_reply_message reply;
+          reply.node_id = check_firewall_message_received.node_id;
+          reply.endpoint_checked = check_firewall_message_received.endpoint_to_check;
+          reply.result = firewall_check_result::unable_to_check;
+        }
+        else
+        {
+          // we're not connected to them, so we need to set up a connection to them
+          // to test.
+          peer_connection_ptr peer_for_testing(peer_connection::make_shared(this));
+          peer_for_testing->firewall_check_state = new firewall_check_state_data;
+          peer_for_testing->firewall_check_state->endpoint_to_test = check_firewall_message_received.endpoint_to_check;
+          peer_for_testing->firewall_check_state->expected_node_id = check_firewall_message_received.node_id;
+          peer_for_testing->firewall_check_state->requesting_peer = originating_peer->node_id;
+          peer_for_testing->set_remote_endpoint(check_firewall_message_received.endpoint_to_check);
+          initiate_connect_to(peer_for_testing);
+        }
+      }
     }
 
     void node_impl::on_check_firewall_reply_message(peer_connection* originating_peer,
                                                     const check_firewall_reply_message& check_firewall_reply_message_received)
     {
       VERIFY_CORRECT_THREAD();
-      // TODO
+
+      if (originating_peer->firewall_check_state &&
+          originating_peer->firewall_check_state->requesting_peer != node_id_t())
+      {
+        // then this is a peer that is helping us check the firewalled state of one of our other peers
+        // and they're reporting back
+        // if they got a result, return it to the original peer.  if they were unable to check,
+        // we'll try another peer.
+        wlog("Peer ${reporter} reports firewall check status ${status} for ${peer}",
+             ("reporter", originating_peer->get_remote_endpoint())
+             ("status", check_firewall_reply_message_received.result)
+             ("peer", check_firewall_reply_message_received.endpoint_checked));
+
+        if (check_firewall_reply_message_received.result == firewall_check_result::unable_to_connect ||
+            check_firewall_reply_message_received.result == firewall_check_result::connection_successful)
+        {
+          peer_connection_ptr original_peer = get_peer_by_node_id(originating_peer->firewall_check_state->requesting_peer);
+          if (original_peer)
+          {
+            if (check_firewall_reply_message_received.result == firewall_check_result::connection_successful)
+            {
+              // if we previously thought this peer was firewalled, mark them as not firewalled
+              if (original_peer->is_firewalled != firewalled_state::not_firewalled)
+              {
+
+                original_peer->is_firewalled = firewalled_state::not_firewalled;
+                // there should be no old entry if we thought they were firewalled, so just create a new one
+                fc::optional<fc::ip::endpoint> inbound_endpoint = originating_peer->get_endpoint_for_connecting();
+                if (inbound_endpoint)
+                {
+                  potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(*inbound_endpoint);
+                  updated_peer_record.last_seen_time = fc::time_point::now();
+                  _potential_peer_db.update_entry(updated_peer_record);              
+                }
+              }
+            }
+            original_peer->send_message(check_firewall_reply_message_received);
+          }
+          delete originating_peer->firewall_check_state;
+          originating_peer->firewall_check_state = nullptr;
+        }
+        else
+        {
+          // they were unable to check for us, ask another peer
+          firewall_check_state_data* firewall_check_state = originating_peer->firewall_check_state;
+          originating_peer->firewall_check_state = nullptr;
+          forward_firewall_check_to_next_available_peer(firewall_check_state);
+        }
+      }
+      else if (originating_peer->firewall_check_state)
+      {
+        // this is a reply to a firewall check we initiated.
+        wlog("Firewall check we initiated has returned with result: ${result}, endpoint = ${endpoint}", 
+             ("result", check_firewall_reply_message_received.result)
+             ("endpoint", check_firewall_reply_message_received.endpoint_checked));
+        if (check_firewall_reply_message_received.result == firewall_check_result::connection_successful)
+        {
+          _is_firewalled = firewalled_state::not_firewalled;
+          _publicly_visible_listening_endpoint = check_firewall_reply_message_received.endpoint_checked;
+        }
+        else if (check_firewall_reply_message_received.result == firewall_check_result::unable_to_connect)
+        {
+          _is_firewalled = firewalled_state::firewalled;
+          _publicly_visible_listening_endpoint = fc::optional<fc::ip::endpoint>();
+        }
+        delete originating_peer->firewall_check_state;
+        originating_peer->firewall_check_state = nullptr;
+      }
+      else
+      {
+        wlog("Received a firewall check reply to a request I never sent");
+      }
+
     }
 
     void node_impl::on_get_current_connections_request_message(peer_connection* originating_peer,
@@ -3580,7 +3817,7 @@ namespace bts { namespace net { namespace detail {
     {
       VERIFY_CORRECT_THREAD();
       new_peer->accept_connection(); // this blocks until the secure connection is fully negotiated
-      send_hello_message( new_peer );
+      send_hello_message(new_peer);
     }
 
     void node_impl::accept_loop()
@@ -3614,7 +3851,7 @@ namespace bts { namespace net { namespace detail {
       }
     } // accept_loop()
 
-    void node_impl::send_hello_message( const peer_connection_ptr& peer )
+    void node_impl::send_hello_message(const peer_connection_ptr& peer)
     {
       VERIFY_CORRECT_THREAD();
       peer->negotiation_status = peer_connection::connection_negotiation_status::hello_sent;
@@ -3624,8 +3861,25 @@ namespace bts { namespace net { namespace detail {
       shared_secret_encoder.write(shared_secret.data(), sizeof(shared_secret));
       fc::ecc::compact_signature signature = _node_configuration.private_key.sign_compact(shared_secret_encoder.result());
 
+      // in the hello messsage, we send three things:
+      //  ip address
+      //  outbound port
+      //  inbound port
+      // The peer we're connecting to will assume we're firewalled if the 
+      // ip address and outbound port we send don't match the values it sees on its remote endpoint
+      //
+      // if we know that we're behind a NAT that will allow incoming connections because our firewall
+      // detection figured it out, send those values instead.
+
       fc::ip::endpoint local_endpoint(peer->get_socket().local_endpoint());
       uint16_t listening_port = _node_configuration.accept_incoming_connections ? _actual_listening_endpoint.port() : 0;
+
+      if (_is_firewalled == firewalled_state::not_firewalled && 
+          _publicly_visible_listening_endpoint)
+      {
+        local_endpoint = *_publicly_visible_listening_endpoint;
+        listening_port = _publicly_visible_listening_endpoint->port();
+      }
 
       hello_message hello(_user_agent_string,
                           core_protocol_version,
@@ -3635,53 +3889,90 @@ namespace bts { namespace net { namespace detail {
                           _node_public_key,
                           signature,
                           _chain_id,
-                          generate_hello_user_data() );
+                          generate_hello_user_data());
 
-      peer->send_message( message(hello) );
+      peer->send_message(message(hello));
     }
 
-    void node_impl::connect_to_task( peer_connection_ptr new_peer,
-                                     const fc::ip::endpoint& remote_endpoint )
+    void node_impl::connect_to_task(peer_connection_ptr new_peer,
+                                    const fc::ip::endpoint& remote_endpoint)
     {
       VERIFY_CORRECT_THREAD();
-      // create or find the database entry for the new peer
-      // if we're connecting to them, we believe they're not firewalled
-      potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( remote_endpoint );
-      updated_peer_record.last_connection_disposition = last_connection_failed;
-      updated_peer_record.last_connection_attempt_time = fc::time_point::now();;
-      _potential_peer_db.update_entry( updated_peer_record );
+
+      if (!new_peer->performing_firewall_check())
+      {
+        // create or find the database entry for the new peer
+        // if we're connecting to them, we believe they're not firewalled
+        potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(remote_endpoint);
+        updated_peer_record.last_connection_disposition = last_connection_failed;
+        updated_peer_record.last_connection_attempt_time = fc::time_point::now();;
+        _potential_peer_db.update_entry(updated_peer_record);
+      }
+      else
+      {
+        wlog("connecting to peer ${peer} for firewall check", ("peer", new_peer->get_remote_endpoint()));
+      }
 
       fc::oexception connect_failed_exception;
 
       try
       {
-        new_peer->connect_to( remote_endpoint, _actual_listening_endpoint );  // blocks until the connection is established and secure connection is negotiated
+        new_peer->connect_to(remote_endpoint, _actual_listening_endpoint);  // blocks until the connection is established and secure connection is negotiated
 
         // we connected to the peer.  guess they're not firewalled....
         new_peer->is_firewalled = firewalled_state::not_firewalled;
 
         // connection succeeded, we've started handshaking.  record that in our database
+        potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(remote_endpoint);
         updated_peer_record.last_connection_disposition = last_connection_handshaking_failed;
         updated_peer_record.number_of_successful_connection_attempts++;
         updated_peer_record.last_seen_time = fc::time_point::now();
-        _potential_peer_db.update_entry( updated_peer_record );
+        _potential_peer_db.update_entry(updated_peer_record);
       }
-      catch ( const fc::exception& except )
+      catch (const fc::exception& except)
       {
         connect_failed_exception = except;
       }
 
-      if (connect_failed_exception)
+      if (connect_failed_exception && !new_peer->performing_firewall_check())
       {
         // connection failed.  record that in our database
+        potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(remote_endpoint);
         updated_peer_record.last_connection_disposition = last_connection_failed;
         updated_peer_record.number_of_failed_connection_attempts++;
         if (new_peer->connection_closed_error)
           updated_peer_record.last_error = *new_peer->connection_closed_error;
         else
           updated_peer_record.last_error = *connect_failed_exception;
-        _potential_peer_db.update_entry( updated_peer_record );
+        _potential_peer_db.update_entry(updated_peer_record);
+      }
 
+      if (new_peer->performing_firewall_check())
+      {
+        // we were connecting to test whether the node is firewalled, and we now know the result.
+        // send a message back to the requester
+        peer_connection_ptr requesting_peer = get_peer_by_node_id(new_peer->firewall_check_state->requesting_peer);
+        if (requesting_peer)
+        {
+          check_firewall_reply_message reply;
+          reply.endpoint_checked = new_peer->firewall_check_state->endpoint_to_test;
+          reply.node_id = new_peer->firewall_check_state->expected_node_id;
+          reply.result = connect_failed_exception ? 
+                           firewall_check_result::unable_to_connect : 
+                           firewall_check_result::connection_successful;
+          wlog("firewall check of ${peer_checked} ${success_or_failure}, sending reply to ${requester}", 
+                ("peer_checked", new_peer->get_remote_endpoint())
+                ("success_or_failure", connect_failed_exception ? "failed" : "succeeded" )
+                ("requester", requesting_peer->get_remote_endpoint()));
+
+          requesting_peer->send_message(reply);
+        }
+      }
+
+      if (connect_failed_exception || new_peer->performing_firewall_check())
+      {
+        // if the connection failed or if this connection was just intended to check
+        // whether the peer is firewalled, we want to disconnect now.
         _handshaking_connections.erase(new_peer);
         _terminating_connections.erase(new_peer);
         assert(_active_connections.find(new_peer) == _active_connections.end());
@@ -3693,10 +3984,12 @@ namespace bts { namespace net { namespace detail {
         trigger_p2p_network_connect_loop();
         schedule_peer_for_deletion(new_peer);
 
-        throw *connect_failed_exception;
+        if (connect_failed_exception)
+          throw *connect_failed_exception;
       }
       else
       {
+        // connection was successful and we want to stay connected
         fc::ip::endpoint local_endpoint = new_peer->get_local_endpoint();
         new_peer->inbound_address = local_endpoint.get_address();
         new_peer->inbound_port = _node_configuration.accept_incoming_connections ? _actual_listening_endpoint.port() : 0;
@@ -3704,8 +3997,8 @@ namespace bts { namespace net { namespace detail {
 
         new_peer->our_state = peer_connection::our_connection_state::just_connected;
         new_peer->their_state = peer_connection::their_connection_state::just_connected;
-        send_hello_message( new_peer );
-        dlog( "Sent \"hello\" to peer ${peer}", ("peer", new_peer->get_remote_endpoint() ) );
+        send_hello_message(new_peer);
+        dlog("Sent \"hello\" to peer ${peer}", ("peer", new_peer->get_remote_endpoint()));
       }
     }
 
@@ -3769,10 +4062,10 @@ namespace bts { namespace net { namespace detail {
 
       _node_public_key = _node_configuration.private_key.get_public_key().serialize();
 
-      fc::path potential_peer_database_file_name( _node_configuration_directory / POTENTIAL_PEER_DATABASE_FILENAME );
+      fc::path potential_peer_database_file_name(_node_configuration_directory / POTENTIAL_PEER_DATABASE_FILENAME);
       try
       {
-        _potential_peer_db.open( potential_peer_database_file_name );
+        _potential_peer_db.open(potential_peer_database_file_name);
 
         // push back the time on all peers loaded from the database so we will be able to retry them immediately
         for (peer_database::iterator itr = _potential_peer_db.begin(); itr != _potential_peer_db.end(); ++itr)
@@ -3780,15 +4073,15 @@ namespace bts { namespace net { namespace detail {
           potential_peer_record updated_peer_record = *itr;
           updated_peer_record.last_connection_attempt_time = std::min<fc::time_point_sec>(updated_peer_record.last_connection_attempt_time,
                                                                                           fc::time_point::now() - fc::seconds(_peer_connection_retry_timeout));
-          _potential_peer_db.update_entry( updated_peer_record );
+          _potential_peer_db.update_entry(updated_peer_record);
         }
 
         trigger_p2p_network_connect_loop();
       }
-      catch ( fc::exception& except )
+      catch (fc::exception& except)
       {
-        elog( "unable to open peer database ${filename}: ${error}",
-             ( "filename", potential_peer_database_file_name )("error", except.to_detail_string() ) );
+        elog("unable to open peer database ${filename}: ${error}",
+             ("filename", potential_peer_database_file_name)("error", except.to_detail_string()));
         throw;
       }
     }
@@ -3913,47 +4206,53 @@ namespace bts { namespace net { namespace detail {
       _dump_node_status_task_done = fc::async([=](){ dump_node_status_task(); }, "dump_node_status_task");
     }
 
-    void node_impl::add_node( const fc::ip::endpoint& ep )
+    void node_impl::add_node(const fc::ip::endpoint& ep)
     {
       VERIFY_CORRECT_THREAD();
       // if we're connecting to them, we believe they're not firewalled
-      potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( ep );
+      potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint(ep);
 
       // if we've recently connected to this peer, reset the last_connection_attempt_time to allow
       // us to immediately retry this peer
-      updated_peer_record.last_connection_attempt_time = std::min<fc::time_point_sec>( updated_peer_record.last_connection_attempt_time,
-                                                                                       fc::time_point::now() - fc::seconds(_peer_connection_retry_timeout) );
-      _add_once_node_list.push_back( updated_peer_record );
-      _potential_peer_db.update_entry( updated_peer_record );
+      updated_peer_record.last_connection_attempt_time = std::min<fc::time_point_sec>(updated_peer_record.last_connection_attempt_time,
+                                                                                      fc::time_point::now() - fc::seconds(_peer_connection_retry_timeout));
+      _add_once_node_list.push_back(updated_peer_record);
+      _potential_peer_db.update_entry(updated_peer_record);
       trigger_p2p_network_connect_loop();
     }
 
-    void node_impl::connect_to( const fc::ip::endpoint& remote_endpoint )
+    void node_impl::initiate_connect_to(const peer_connection_ptr& new_peer)
     {
-      VERIFY_CORRECT_THREAD();
-      if( is_connection_to_endpoint_in_progress(remote_endpoint) )
-        FC_THROW_EXCEPTION( already_connected_to_requested_peer, "already connected to requested endpoint ${endpoint}", ("endpoint", remote_endpoint ) );
-
-      dlog( "node_impl::connect_to(${endpoint})", ("endpoint", remote_endpoint) );
-      peer_connection_ptr new_peer(peer_connection::make_shared(this));
       new_peer->get_socket().open();
       new_peer->get_socket().set_reuse_address();
-      new_peer->set_remote_endpoint( remote_endpoint );
       new_peer->connection_initiation_time = fc::time_point::now();
-      _handshaking_connections.insert( new_peer );
-      _rate_limiter.add_tcp_socket( &new_peer->get_socket() );
+      _handshaking_connections.insert(new_peer);
+      _rate_limiter.add_tcp_socket(&new_peer->get_socket());
 
       if (_node_is_shutting_down)
         return;
 
       std::weak_ptr<peer_connection> new_weak_peer(new_peer);
-      new_peer->accept_or_connect_task_done = fc::async( [this, new_weak_peer, remote_endpoint](){
+      new_peer->accept_or_connect_task_done = fc::async([this, new_weak_peer](){
         peer_connection_ptr new_peer(new_weak_peer.lock());
         assert(new_peer);
         if (!new_peer)
           return;
-        connect_to_task(new_peer, remote_endpoint );
-      }, "connect_to_task" );
+        connect_to_task(new_peer, *new_peer->get_remote_endpoint());
+      }, "connect_to_task");
+    }
+
+    void node_impl::connect_to_endpoint(const fc::ip::endpoint& remote_endpoint)
+    {
+      VERIFY_CORRECT_THREAD();
+      if (is_connection_to_endpoint_in_progress(remote_endpoint))
+        FC_THROW_EXCEPTION(already_connected_to_requested_peer, "already connected to requested endpoint ${endpoint}", 
+                           ("endpoint", remote_endpoint));
+
+      dlog("node_impl::connect_to_endpoint(${endpoint})", ("endpoint", remote_endpoint));
+      peer_connection_ptr new_peer(peer_connection::make_shared(this));
+      new_peer->set_remote_endpoint(remote_endpoint);
+      initiate_connect_to(new_peer);
     }
 
     peer_connection_ptr node_impl::get_connection_to_endpoint( const fc::ip::endpoint& remote_endpoint )
@@ -4058,7 +4357,7 @@ namespace bts { namespace net { namespace detail {
       VERIFY_CORRECT_THREAD();
       move_peer_to_closing_list(peer_to_disconnect->shared_from_this());
 
-      if( peer_to_disconnect->they_have_requested_close )
+      if (peer_to_disconnect->they_have_requested_close)
       {
         // the peer has already told us that it's ready to close the connection, so just close the connection
         peer_to_disconnect->close_connection();
@@ -4066,14 +4365,20 @@ namespace bts { namespace net { namespace detail {
       else
       {
         // we're the first to try to want to close the connection
-        potential_peer_record updated_peer_record = _potential_peer_db.lookup_or_create_entry_for_endpoint( *peer_to_disconnect->get_remote_endpoint() );
-        updated_peer_record.last_seen_time = fc::time_point::now();
-        if( error )
-          updated_peer_record.last_error = error;
-        else
-          updated_peer_record.last_error = fc::exception( FC_LOG_MESSAGE(info, reason_for_disconnect.c_str() ) );
-        _potential_peer_db.update_entry( updated_peer_record );
-
+        fc::optional<fc::ip::endpoint> inbound_endpoint = peer_to_disconnect->get_endpoint_for_connecting();
+        if (inbound_endpoint)
+        {
+          fc::optional<potential_peer_record> updated_peer_record = _potential_peer_db.lookup_entry_for_endpoint(*inbound_endpoint);
+          if (updated_peer_record)
+          {
+            updated_peer_record->last_seen_time = fc::time_point::now();
+            if (error)
+              updated_peer_record->last_error = error;
+            else
+              updated_peer_record->last_error = fc::exception(FC_LOG_MESSAGE(info, reason_for_disconnect.c_str()));
+            _potential_peer_db.update_entry(*updated_peer_record);
+          }
+        }
         peer_to_disconnect->we_have_requested_close = true;
         peer_to_disconnect->connection_closed_time = fc::time_point::now();
 
@@ -4084,12 +4389,12 @@ namespace bts { namespace net { namespace detail {
       // notify the user.  This will be useful in testing, but we might want to remove it later;
       // it makes good sense to notify the user if other nodes think she is behaving badly, but
       // if we're just detecting and dissconnecting other badly-behaving nodes, they don't really care.
-      if( caused_by_error )
+      if (caused_by_error)
       {
         std::ostringstream error_message;
         error_message << "I am disconnecting peer " << fc::variant( peer_to_disconnect->get_remote_endpoint() ).as_string() <<
                          " for reason: " << reason_for_disconnect;
-        _delegate->error_encountered( error_message.str(), fc::oexception() );
+        _delegate->error_encountered(error_message.str(), fc::oexception());
         dlog(error_message.str());
       }
       else
@@ -4385,6 +4690,7 @@ namespace bts { namespace net { namespace detail {
       info["listening_on"] = _actual_listening_endpoint;
       info["node_public_key"] = _node_public_key;
       info["node_id"] = _node_id;
+      info["firewalled"] = _is_firewalled;
       return info;
     }
     fc::variant_object node_impl::network_get_usage_stats() const
@@ -4479,9 +4785,9 @@ namespace bts { namespace net { namespace detail {
     INVOKE_IN_IMPL(add_node, ep);
   }
 
-  void node::connect_to( const fc::ip::endpoint& remote_endpoint )
+  void node::connect_to_endpoint( const fc::ip::endpoint& remote_endpoint )
   {
-    INVOKE_IN_IMPL(connect_to, remote_endpoint);
+    INVOKE_IN_IMPL(connect_to_endpoint, remote_endpoint);
   }
 
   void node::listen_on_endpoint( const fc::ip::endpoint& ep )

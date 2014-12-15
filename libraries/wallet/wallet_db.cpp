@@ -4,6 +4,7 @@
 
 #include <fc/io/json.hpp>
 #include <fstream>
+#include <iostream>
 
 namespace bts { namespace wallet {
 
@@ -13,7 +14,7 @@ namespace bts { namespace wallet {
      class wallet_db_impl
      {
         public:
-           wallet_db*                                        self;
+           wallet_db*                                        self = nullptr;
            bts::db::level_map<int32_t,generic_wallet_record> _records;
 
            void store_and_reload_generic_record( const generic_wallet_record& record )
@@ -21,7 +22,11 @@ namespace bts { namespace wallet {
                auto index = record.get_wallet_record_index();
                FC_ASSERT( index != 0 );
                FC_ASSERT( _records.is_open() );
+#ifndef BTS_TEST_NETWORK
+               _records.store( index, record, true ); // Sync
+#else
                _records.store( index, record );
+#endif
                load_generic_record( record );
            } FC_CAPTURE_AND_RETHROW( (record) ) }
 
@@ -40,9 +45,6 @@ namespace bts { namespace wallet {
                        break;
                    case transaction_record_type:
                        load_transaction_record( record.as<wallet_transaction_record>() );
-                       break;
-                   case balance_record_type:
-                       load_balance_record( record.as<wallet_balance_record>() );
                        break;
                    case property_record_type:
                        load_property_record( record.as<wallet_property_record>() );
@@ -63,22 +65,33 @@ namespace bts { namespace wallet {
 
            void load_account_record( const wallet_account_record& account_record )
            { try {
-               self->accounts[ account_record.wallet_record_index ] = account_record;
+               const int32_t& record_index = account_record.wallet_record_index;
+               self->accounts[ record_index ] = account_record;
 
                // Cache address map
-               self->address_to_account_wallet_record_index[ account_record.account_address ] = account_record.wallet_record_index;
+               self->address_to_account_wallet_record_index[ address( account_record.owner_key ) ] = record_index;
                for( const auto& item : account_record.active_key_history )
                {
                    const public_key_type& active_key = item.second;
-                   self->address_to_account_wallet_record_index[ address( active_key ) ] = account_record.wallet_record_index;
+                   if( active_key == public_key_type() ) continue;
+                   self->address_to_account_wallet_record_index[ address( active_key ) ] = record_index;
+               }
+               if( account_record.is_delegate() )
+               {
+                   for( const auto& item : account_record.delegate_info->signing_key_history )
+                   {
+                       const public_key_type& signing_key = item.second;
+                       if( signing_key == public_key_type() ) continue;
+                       self->address_to_account_wallet_record_index[ address( signing_key ) ] = record_index;
+                   }
                }
 
                // Cache name map
-               self->name_to_account_wallet_record_index[ account_record.name ] = account_record.wallet_record_index;
+               self->name_to_account_wallet_record_index[ account_record.name ] = record_index;
 
                // Cache id map
                if( account_record.id != 0 )
-                   self->account_id_to_wallet_record_index[ account_record.id ] = account_record.wallet_record_index;
+                   self->account_id_to_wallet_record_index[ account_record.id ] = record_index;
            } FC_CAPTURE_AND_RETHROW( (account_record) ) }
 
            void load_key_record( const wallet_key_record& key_record )
@@ -97,13 +110,15 @@ namespace bts { namespace wallet {
 
            void load_transaction_record( const wallet_transaction_record& transaction_record )
            { try {
-               self->transactions[ transaction_record.record_id ] = transaction_record;
-           } FC_CAPTURE_AND_RETHROW( (transaction_record) ) }
+               const transaction_id_type& record_id = transaction_record.record_id;
+               self->transactions[ record_id ] = transaction_record;
 
-           void load_balance_record( const wallet_balance_record& rec )
-           { try {
-              self->balances[ rec.id() ] = rec;
-           } FC_CAPTURE_AND_RETHROW( (rec) ) }
+               // Cache id map
+               self->id_to_transaction_record_index[ record_id ] = record_id;
+               const transaction_id_type transaction_id = transaction_record.trx.id();
+               if( transaction_id != signed_transaction().id() )
+                   self->id_to_transaction_record_index[ transaction_id ] = record_id;
+           } FC_CAPTURE_AND_RETHROW( (transaction_record) ) }
 
            void load_property_record( const wallet_property_record& property_rec )
            { try {
@@ -166,17 +181,18 @@ namespace bts { namespace wallet {
       wallet_master_key.reset();
 
       accounts.clear();
-      keys.clear();
-      transactions.clear();
-      balances.clear();
-      properties.clear();
-      settings.clear();
-
       address_to_account_wallet_record_index.clear();
       name_to_account_wallet_record_index.clear();
       account_id_to_wallet_record_index.clear();
 
+      keys.clear();
       btc_to_bts_address.clear();
+
+      transactions.clear();
+      id_to_transaction_record_index.clear();
+
+      properties.clear();
+      settings.clear();
    }
 
    bool wallet_db::is_open()const
@@ -240,46 +256,62 @@ namespace bts { namespace wallet {
        FC_ASSERT( !account_record.valid(), "Wallet already contains an account with that name!" );
 
        uint32_t key_index = get_last_wallet_child_key_index();
-       private_key_type account_private_key;
-       public_key_type account_public_key;
-       address account_address;
+       private_key_type owner_private_key, active_private_key;
+       public_key_type owner_public_key, active_public_key;
+       address owner_address, active_address;
        while( true )
        {
            ++key_index;
            FC_ASSERT( key_index != 0, "Overflow!" );
 
-           account_private_key = get_wallet_child_key( password, key_index );
-           account_public_key = account_private_key.get_public_key();
-           account_address = address( account_public_key );
+           owner_private_key = get_wallet_child_key( password, key_index );
+           owner_public_key = owner_private_key.get_public_key();
+           owner_address = address( owner_public_key );
 
-           account_record = lookup_account( account_address );
+           account_record = lookup_account( owner_address );
            if( account_record.valid() ) continue;
 
-           owallet_key_record key_record = lookup_key( account_address );
+           owallet_key_record key_record = lookup_key( owner_address );
+           if( key_record.valid() && key_record->has_private_key() ) continue;
+
+           active_private_key = get_account_child_key( owner_private_key, 0 );
+           active_public_key = active_private_key.get_public_key();
+           active_address = address( active_public_key );
+
+           account_record = lookup_account( active_address );
+           if( account_record.valid() ) continue;
+
+           key_record = lookup_key( active_address );
            if( key_record.valid() && key_record->has_private_key() ) continue;
 
            break;
        }
 
-       key_data key;
-       key.account_address = account_address;
-       key.public_key = account_public_key;
-       key.encrypt_private_key( password, account_private_key );
-       key.gen_seq_number = key_index;
+       key_data active_key;
+       active_key.account_address = owner_address;
+       active_key.public_key = active_public_key;
+       active_key.encrypt_private_key( password, active_private_key );
+
+       key_data owner_key;
+       owner_key.account_address = owner_address;
+       owner_key.public_key = owner_public_key;
+       owner_key.encrypt_private_key( password, owner_private_key );
+       owner_key.gen_seq_number = key_index;
 
        account_data account;
        account.name = account_name;
-       account.owner_key = account_public_key;
-       account.set_active_key( blockchain::now(), account_public_key );
-       account.account_address = account_address;
-       account.private_data = private_data;
+       account.owner_key = owner_public_key;
+       account.set_active_key( blockchain::now(), active_public_key );
+       account.last_update = blockchain::now();
        account.is_my_account = true;
+       account.private_data = private_data;
 
+       store_key( active_key );
        set_last_wallet_child_key_index( key_index );
-       store_key( key );
+       store_key( owner_key );
        store_account( account );
 
-       return account_public_key;
+       return owner_public_key;
    } FC_CAPTURE_AND_RETHROW( (account_name) ) }
 
    private_key_type wallet_db::get_account_child_key( const private_key_type& active_private_key, uint32_t seq_num )const
@@ -308,6 +340,7 @@ namespace bts { namespace wallet {
 
        owallet_account_record account_record = lookup_account( account_name );
        FC_ASSERT( account_record.valid(), "Account not found!" );
+       FC_ASSERT( !account_record->is_retracted(), "Account has been retracted!" );
        FC_ASSERT( account_record->is_my_account, "Not my account!" );
 
        const owallet_key_record key_record = lookup_key( address( account_record->active_key() ) );
@@ -337,7 +370,7 @@ namespace bts { namespace wallet {
        account_record->last_used_gen_sequence = seq_num;
 
        key_data key;
-       key.account_address = account_record->account_address;
+       key.account_address = account_record->owner_address();
        key.public_key = account_child_public_key;
        key.encrypt_private_key( password, account_child_private_key );
        key.gen_seq_number = seq_num;
@@ -362,7 +395,6 @@ namespace bts { namespace wallet {
        record = wallet_account_record();
        account_record& temp_record = *record;
        temp_record = blockchain_account_record;
-       record->account_address = account_address;
        record->private_data = private_data;
 
        store_account( *record );
@@ -424,10 +456,8 @@ namespace bts { namespace wallet {
        FC_ASSERT( is_open() );
        FC_ASSERT( account.name != string() );
        FC_ASSERT( account.owner_key != public_key_type() );
-       FC_ASSERT( account.active_key() != public_key_type() );
-       FC_ASSERT( account.account_address == address( account.owner_key ) );
 
-       owallet_account_record account_record = lookup_account( account.account_address );
+       owallet_account_record account_record = lookup_account( account.owner_address() );
        if( !account_record.valid() )
            account_record = wallet_account_record();
 
@@ -441,19 +471,43 @@ namespace bts { namespace wallet {
        for( const auto& active_key_item : account_record->active_key_history )
        {
            const public_key_type& active_key = active_key_item.second;
+           if( active_key == public_key_type() ) continue;
            account_public_keys.insert( active_key );
+       }
+       if( account.is_delegate() )
+       {
+           for( const auto& item : account.delegate_info->signing_key_history )
+           {
+               const public_key_type& signing_key = item.second;
+               if( signing_key == public_key_type() ) continue;
+               account_public_keys.insert( signing_key );
+           }
        }
 
        for( const public_key_type& account_public_key : account_public_keys )
        {
            const address account_address = address( account_public_key );
-           const owallet_key_record key_record = lookup_key( account_address );
+           owallet_key_record key_record = lookup_key( account_address );
            if( !key_record.valid() )
            {
                key_data key;
                key.account_address = account_address;
                key.public_key = account_public_key;
                store_key( key );
+           }
+           else if( key_record->has_private_key() )
+           {
+               if( !account_record->is_my_account )
+               {
+                   account_record->is_my_account = true;
+                   store_and_reload_record( *account_record );
+               }
+
+               if( key_record->account_address != account_record->owner_address() )
+               {
+                   key_record->account_address = account_record->owner_address();
+                   store_key( *key_record );
+               }
            }
        }
    } FC_CAPTURE_AND_RETHROW( (account) ) }
@@ -462,15 +516,12 @@ namespace bts { namespace wallet {
    { try {
        FC_ASSERT( is_open() );
 
-       const address account_address = address( blockchain_account_record.owner_key );
-       owallet_account_record account_record = lookup_account( account_address );
+       owallet_account_record account_record = lookup_account( blockchain_account_record.owner_address() );
        if( !account_record.valid() )
            account_record = wallet_account_record();
 
        blockchain::account_record& temp = *account_record;
        temp = blockchain_account_record;
-
-       account_record->account_address = account_address;
 
        store_account( *account_record );
    } FC_CAPTURE_AND_RETHROW( (blockchain_account_record) ) }
@@ -508,16 +559,29 @@ namespace bts { namespace wallet {
 
        if( key_record->has_private_key() )
        {
-           owallet_account_record account_record = lookup_account( key.account_address );
-           if( account_record.valid() && !account_record->is_my_account )
+           owallet_account_record account_record = lookup_account( key.public_key );
+           if( !account_record.valid() )
+               account_record = lookup_account( key.account_address );
+
+           if( account_record.valid() )
            {
-               account_record->is_my_account = true;
-               store_account( *account_record );
+               if( key_record->account_address != account_record->owner_address() )
+               {
+                   key_record->account_address = account_record->owner_address();
+                   store_and_reload_record( *key_record );
+               }
+
+               if( !account_record->is_my_account )
+               {
+                   account_record->is_my_account = true;
+                   store_account( *account_record );
+               }
            }
        }
    } FC_CAPTURE_AND_RETHROW( (key) ) }
 
-   void wallet_db::import_key( const fc::sha512& password, const string& account_name, const private_key_type& private_key )
+   void wallet_db::import_key( const fc::sha512& password, const string& account_name, const private_key_type& private_key,
+                               bool move_existing )
    { try {
        FC_ASSERT( is_open() );
 
@@ -525,32 +589,36 @@ namespace bts { namespace wallet {
        FC_ASSERT( account_record.valid(), "Account name not found!" );
 
        const public_key_type public_key = private_key.get_public_key();
-       const address key_address = address( public_key );
 
-       owallet_key_record key_record = lookup_key( key_address );
-       if( key_record.valid() )
-           FC_ASSERT( key_record->account_address == account_record->account_address );
-       else
+       owallet_key_record key_record = lookup_key( address( public_key ) );
+       if( !key_record.valid() )
            key_record = wallet_key_record();
+       else if( !move_existing )
+           FC_ASSERT( key_record->account_address == account_record->owner_address() );
 
-       key_record->account_address = account_record->account_address;
+       key_record->account_address = account_record->owner_address();
        key_record->public_key = public_key;
        key_record->encrypt_private_key( password, private_key );
 
        store_key( *key_record );
-   } FC_CAPTURE_AND_RETHROW( (account_name) ) }
+   } FC_CAPTURE_AND_RETHROW( (account_name)(move_existing) ) }
 
-   owallet_transaction_record wallet_db::lookup_transaction( const transaction_id_type& record_id )const
+   owallet_transaction_record wallet_db::lookup_transaction( const transaction_id_type& id )const
    { try {
        FC_ASSERT( is_open() );
-       const auto id_map_iter = transactions.find( record_id );
-       if( id_map_iter != transactions.end() )
+       const auto id_map_iter = id_to_transaction_record_index.find( id );
+       if( id_map_iter != id_to_transaction_record_index.end() )
        {
-           const wallet_transaction_record& transaction_record = id_map_iter->second;
-           return transaction_record;
+           const transaction_id_type& record_id = id_map_iter->second;
+           const auto record_iter = transactions.find( record_id );
+           if( record_iter != transactions.end() )
+           {
+               const wallet_transaction_record& transaction_record = record_iter->second;
+               return transaction_record;
+           }
        }
        return owallet_transaction_record();
-   } FC_CAPTURE_AND_RETHROW( (record_id) ) }
+   } FC_CAPTURE_AND_RETHROW( (id) ) }
 
    void wallet_db::store_transaction( const transaction_data& transaction )
    { try {
@@ -585,6 +653,7 @@ namespace bts { namespace wallet {
        return one_time_private_key;
    } FC_CAPTURE_AND_RETHROW() }
 
+   // Only returns private keys corresponding to owner and active keys
    map<private_key_type, string> wallet_db::get_account_private_keys( const fc::sha512& password )const
    { try {
        map<public_key_type, string> public_keys;
@@ -595,7 +664,8 @@ namespace bts { namespace wallet {
            for( const auto& active_key_item : account.active_key_history )
            {
                const auto& active_key = active_key_item.second;
-               public_keys[ active_key ] = account.name;
+               if( active_key != public_key_type() )
+                   public_keys[ active_key ] = account.name;
            }
        }
 
@@ -629,15 +699,17 @@ namespace bts { namespace wallet {
        for( auto iter = my->_records.begin(); iter.valid(); ++iter )
            records.push_back( iter.value() );
 
-       // Repair account_data.account_address
+
+       // Repair account_data.is_my_account and key_data.account_address
+       uint32_t count = 0;
        for( generic_wallet_record& record : records )
        {
            try
            {
                if( wallet_record_type_enum( record.type ) == account_record_type )
                {
+                   std::cout << "\rRepairing account record " << std::to_string( ++count ) << std::flush;
                    wallet_account_record account_record = record.as<wallet_account_record>();
-                   account_record.account_address = address( account_record.owner_key );
                    store_account( account_record );
                }
            }
@@ -646,20 +718,36 @@ namespace bts { namespace wallet {
            }
        }
 
-       // Repair key_data.public_key when I have the private key
+       // Repair key_data.public_key when I have the private key and
+       // repair key_data.account_address and account_data.is_my_account
+       count = 0;
        for( generic_wallet_record& record : records )
        {
            try
            {
                if( wallet_record_type_enum( record.type ) == key_record_type )
                {
+                   std::cout << "\rRepairing key record     " << std::to_string( ++count ) << std::flush;
                    wallet_key_record key_record = record.as<wallet_key_record>();
                    if( key_record.has_private_key() )
                    {
                        const private_key_type private_key = key_record.decrypt_private_key( password );
-                       key_record.public_key = private_key.get_public_key();
-                       store_key( key_record );
+                       const public_key_type public_key = private_key.get_public_key();
+                       if( key_record.public_key != public_key )
+                       {
+                           const address key_address = key_record.get_address();
+                           keys.erase( key_address );
+                           btc_to_bts_address.erase( key_address );
+                           btc_to_bts_address.erase( address( pts_address( key_record.public_key, false, 0  ) ) );
+                           btc_to_bts_address.erase( address( pts_address( key_record.public_key, true,  0  ) ) );
+                           btc_to_bts_address.erase( address( pts_address( key_record.public_key, false, 56 ) ) );
+                           btc_to_bts_address.erase( address( pts_address( key_record.public_key, true,  56 ) ) );
+
+                           key_record.public_key = public_key;
+                           my->load_key_record( key_record );
+                       }
                    }
+                   store_key( key_record );
                }
            }
            catch( ... )
@@ -668,26 +756,35 @@ namespace bts { namespace wallet {
        }
 
        // Repair transaction_data.record_id
+       count = 0;
        for( generic_wallet_record& record : records )
        {
            try
            {
                if( wallet_record_type_enum( record.type ) == transaction_record_type )
                {
+                   std::cout << "\rRepairing transaction record     " << std::to_string( ++count ) << std::flush;
                    wallet_transaction_record transaction_record = record.as<wallet_transaction_record>();
                    if( transaction_record.trx.id() != signed_transaction().id()  )
                    {
-                       remove_item( transaction_record.wallet_record_index );
-                       transactions.erase( transaction_record.record_id );
-                       transaction_record.record_id = transaction_record.trx.id();
-                       store_transaction( transaction_record );
+                       const transaction_id_type record_id = transaction_record.trx.id();
+                       if( transaction_record.record_id != record_id )
+                       {
+                           transactions.erase( transaction_record.record_id );
+                           id_to_transaction_record_index.erase( transaction_record.record_id );
+
+                           transaction_record.record_id = record_id;
+                           my->load_transaction_record( transaction_record );
+                       }
                    }
+                   store_transaction( transaction_record );
                }
            }
            catch( ... )
            {
            }
        }
+       std::cout << "\rWallet records repaired.                                  " << std::flush << "\n";
    } FC_CAPTURE_AND_RETHROW() }
 
    void wallet_db::set_property( property_enum property_id, const variant& v )
@@ -809,33 +906,6 @@ namespace bts { namespace wallet {
       store_key( data );
    }
 
-   owallet_balance_record wallet_db::lookup_balance( const balance_id_type& balance_id )const
-   {
-      auto itr = balances.find( balance_id );
-      if( itr == balances.end() ) return fc::optional<wallet_balance_record>();
-      return itr->second;
-   }
-
-   vector<wallet_balance_record> wallet_db::get_all_balances( const string& account_name, uint32_t limit )
-   {
-       auto ret = vector<wallet_balance_record>();
-       auto count = 0;
-       for( auto item : balances )
-       {
-           if (count == limit && limit != -1)
-               break;
-           auto okey = lookup_key(item.second.owner());
-           FC_ASSERT(okey.valid(), "expect a key record to exist at this point");
-           auto oacct = lookup_account( okey->account_address );
-           if ( oacct.valid() && oacct->name == account_name )
-           {
-               ret.push_back(item.second);
-               count++;
-           }
-       }
-       return ret;
-   }
-
    owallet_setting_record wallet_db::lookup_setting( const string& name)const
    {
       auto itr = settings.find(name);
@@ -846,44 +916,35 @@ namespace bts { namespace wallet {
       return owallet_setting_record();
    }
 
-   void wallet_db::cache_balance( const bts::blockchain::balance_record& balance_to_cache )
-   {
-      auto balance_id = balance_to_cache.id();
-      owallet_balance_record current_bal = lookup_balance(balance_id);
-      wallet_balance_record balance_record;
-      if( !current_bal.valid() )
-      {
-         balance_record = wallet_balance_record( balance_to_cache, new_wallet_record_index() );
-      }
-      else
-      {
-         blockchain::balance_record& chain_rec = *current_bal;
-         chain_rec = balance_to_cache;
-         balance_record = *current_bal;
-      }
-
-      store_and_reload_record( balance_record );
-   }
-
    void wallet_db::remove_contact_account( const string& account_name )
    {
-      const auto opt_account = lookup_account( account_name );
-      FC_ASSERT( opt_account.valid() );
-      const auto acct = *opt_account;
-      FC_ASSERT( ! has_private_key(address(acct.owner_key)), "you can only remove contact accounts");
+       const owallet_account_record account_record = lookup_account( account_name );
+       FC_ASSERT( account_record.valid() );
+       FC_ASSERT( !account_record->is_my_account );
 
-      for( const auto& time_key_pair : acct.active_key_history )
-      {
-          keys.erase( address(time_key_pair.second) );
-          address_to_account_wallet_record_index.erase( address(time_key_pair.second) );
-      }
-      remove_item( acct.wallet_record_index );
+       const int32_t& record_index = account_record->wallet_record_index;
 
-      keys.erase( address(acct.owner_key) );
-      address_to_account_wallet_record_index.erase( address(acct.owner_key) );
-      account_id_to_wallet_record_index.erase( acct.id );
-      name_to_account_wallet_record_index.erase( account_name );
-      accounts.erase( acct.wallet_record_index );
+       accounts.erase( record_index );
+
+       address_to_account_wallet_record_index.erase( address( account_record->owner_key ) );
+       for( const auto& item : account_record->active_key_history )
+       {
+           const public_key_type& active_key = item.second;
+           address_to_account_wallet_record_index.erase( address( active_key ) );
+       }
+       if( account_record->is_delegate() )
+       {
+           for( const auto& item : account_record->delegate_info->signing_key_history )
+           {
+               const public_key_type& signing_key = item.second;
+               address_to_account_wallet_record_index.erase( address( signing_key ) );
+           }
+       }
+
+       name_to_account_wallet_record_index.erase( account_record->name );
+       account_id_to_wallet_record_index.erase( account_record->id );
+
+       // TODO: Remove key records and indexes
    }
 
    void wallet_db::rename_account(const public_key_type &old_account_key,
@@ -914,7 +975,11 @@ namespace bts { namespace wallet {
    { try {
        try
        {
+#ifndef BTS_TEST_NETWORK
+           my->_records.remove( index, true ); // Sync
+#else
            my->_records.remove( index );
+#endif
        }
        catch( const fc::key_not_found_exception& )
        {
@@ -954,12 +1019,6 @@ namespace bts { namespace wallet {
          }
       }
    } FC_CAPTURE_AND_RETHROW() }
-
-   void wallet_db::remove_balance( const balance_id_type& balance_id )
-   {
-      remove_item( balances[balance_id].wallet_record_index );
-      balances.erase(balance_id);
-   }
 
    void wallet_db::remove_transaction( const transaction_id_type& record_id )
    {

@@ -28,11 +28,13 @@ namespace bts { namespace wallet {
          uint32_t               get_last_wallet_child_key_index()const;
          void                   set_last_wallet_child_key_index( uint32_t key_index );
          private_key_type       get_wallet_child_key( const fc::sha512& password, uint32_t key_index )const;
-         public_key_type        generate_new_account( const fc::sha512& password, const string& account_name, const variant& private_data );
+         public_key_type        generate_new_account( const fc::sha512& password, const string& account_name,
+                                                      const variant& private_data );
 
          // Account child keys
          private_key_type       get_account_child_key( const private_key_type& active_private_key, uint32_t seq_num )const;
-         private_key_type       get_account_child_key_v1( const fc::sha512& password, const address& account_address, uint32_t seq_num )const;
+         private_key_type       get_account_child_key_v1( const fc::sha512& password, const address& account_address,
+                                                          uint32_t seq_num )const;
          private_key_type       generate_new_account_child_key( const fc::sha512& password, const string& account_name );
 
          void                   add_contact_account( const account_record& blockchain_account_record, const variant& private_data );
@@ -47,10 +49,11 @@ namespace bts { namespace wallet {
          // Key getters and setters
          owallet_key_record     lookup_key( const address& derived_address )const;
          void                   store_key( const key_data& key );
-         void                   import_key( const fc::sha512& password, const string& account_name, const private_key_type& private_key );
+         void                   import_key( const fc::sha512& password, const string& account_name,
+                                            const private_key_type& private_key, bool move_existing );
 
          // Transaction getters and setters
-         owallet_transaction_record lookup_transaction( const transaction_id_type& record_id )const;
+         owallet_transaction_record lookup_transaction( const transaction_id_type& id )const;
          void store_transaction( const transaction_data& transaction );
 
          // Non-deterministic and not linked to any account
@@ -62,20 +65,15 @@ namespace bts { namespace wallet {
          void                   repair_records( const fc::sha512& password );
          // ********************************************************************
 
-         void cache_balance( const bts::blockchain::balance_record& b );
          void cache_memo( const memo_status& memo,
                           const private_key_type& account_key,
                           const fc::sha512& password );
 
-         void remove_balance( const balance_id_type& balance_id );
          void remove_transaction( const transaction_id_type& record_id );
 
          vector<wallet_transaction_record> get_pending_transactions()const;
 
          string                        get_account_name( const address& account_address )const;
-
-         vector<wallet_balance_record>  get_all_balances( const string& account_name, uint32_t limit );
-         owallet_balance_record lookup_balance( const balance_id_type& balance_id )const;
 
          owallet_setting_record   lookup_setting(const string& name)const;
          void                     store_setting(const string& name, const variant& value);
@@ -102,10 +100,6 @@ namespace bts { namespace wallet {
          {
             return transactions;
          }
-         const unordered_map< balance_id_type,wallet_balance_record >& get_balances()const
-         {
-            return balances;
-         }
          const unordered_map< int32_t,wallet_account_record >& get_accounts()const
          {
             return accounts;
@@ -120,10 +114,9 @@ namespace bts { namespace wallet {
       private:
          optional<wallet_master_key_record>                             wallet_master_key;
          /** maps wallet_record_index to accounts */
-         unordered_map<int32_t,wallet_account_record>                   accounts;
+         unordered_map<int32_t, wallet_account_record>                  accounts;
          unordered_map<address, wallet_key_record>                      keys;
          unordered_map<transaction_id_type, wallet_transaction_record>  transactions;
-         unordered_map<balance_id_type,wallet_balance_record>           balances;
          map<property_enum, wallet_property_record>                     properties;
          map<string, wallet_setting_record>                             settings;
 
@@ -134,6 +127,9 @@ namespace bts { namespace wallet {
 
          // Cache to lookup keys
          unordered_map<address, address>                                btc_to_bts_address;
+
+         // Cache to lookup transactions
+         unordered_map<transaction_id_type, transaction_id_type>        id_to_transaction_record_index;
 
          void remove_item( int32_t index );
 

@@ -21,12 +21,10 @@ cd nameshares
 git checkout nameshares
 git submodule init
 git submodule update
-cd vendor
-git clone https://github.com/InvictusInnovations/leveldb-win.git
 ```
 
 * Dowload CMake
-  
+
   Download the latest *Win32 Zip* build CMake from 
   http://cmake.org/cmake/resources/software.html (version 2.8.12.2 as of this 
   writing).  Unzip it to your base directory, which will create a directory that
@@ -106,9 +104,9 @@ set(Boost_USE_DEBUG_PYTHON ON)
   `b2.exe link=shared python-debugging=on`.  That would cause debug builds to 
   have `-gyd` mangled into their filename.  We don't need python debugging here,
   so we didn't give the `python-debugging` argument to `b2.exe`, and
-  that causes our boost debug libraries to have `-gd` mangled into the filename 
-  instead.  If this option in `fc\CMakeLists.txt` doesn't match the way you 
-  compiled boost, CMake won't be able to find the debug version of the boost 
+  that causes our boost debug libraries to have `-gd` mangled into the filename
+  instead.  If this option in `fc\CMakeLists.txt` doesn't match the way you
+  compiled boost, CMake won't be able to find the debug version of the boost
   libraries, and you'll get some strange errors when you try to run the
   debug version of NameShares.
 

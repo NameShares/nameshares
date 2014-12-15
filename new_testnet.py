@@ -10,29 +10,24 @@ if len(sys.argv) > 1:
     ip = sys.argv[1]
 
 print "This will create a new genesis block and make changes to your config files."
-print "Continue? [y/n]"
-entry = raw_input()
-if entry != "y":
-    sys.exit("Operation canceled")
+n = raw_input("Overwrite config files? [Y/n]")
+if n == "n":
+    sys.exit(0)
 
 input_log = []
 
 input_log.append(">>> wallet_create default password")
 input_log.append(">>> wallet_set_automatic_backups false ")
 
-new_genesis = {
-        "timestamp": datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S"),
-        "market_assets": [],
-        "names": [],
-        "balances": [["PuVTvYER8hjVdqy6q5PUKSBRNdG9p2PTep", 1000],
-                     ["PusXDPiS8aL7kCYoTDDc4gwCrWnwKdECte", 1000]],
-        "bts_sharedrop": []
-}
+new_genesis = {}
+with open("libraries/blockchain/genesis.json") as genesis:
+    new_genesis = json.load(genesis)
 
-with open("libraries/blockchain/bts-sharedrop.json") as snapshot:
-    items = json.loads(snapshot.read())
-    for item in items:
-        new_genesis["bts_sharedrop"].append(item)
+new_genesis["timestamp"] = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+new_genesis["names"] = []
+new_genesis["balances"] = [["PuVTvYER8hjVdqy6q5PUKSBRNdG9p2PTep", 1000],
+                           ["PusXDPiS8aL7kCYoTDDc4gwCrWnwKdECte", 1000]]
+
 
 for i in range(33):
     keys = json.loads(subprocess.check_output(["./programs/utils/bts_create_key"]))
@@ -71,8 +66,6 @@ os.rename("tmp_config", "libraries/blockchain/include/bts/blockchain/config.hpp"
 #os.rename("tmp_config", "libraries/net/include/bts/net/config.hpp")
 
 old_balances = []
-with open("libraries/blockchain/genesis.json") as genesis:
-    old_balances = json.load(genesis)["balances"]
 
 with open("libraries/blockchain/genesis.json", "w") as genesis:
     genesis.write(json.dumps(new_genesis, indent=4))
@@ -81,7 +74,8 @@ with open("testnet_setup_log.txt", "w") as log:
     for line in input_log:
         log.write(line + "\n")
 
-
-subprocess.call(["make", "-j4"])
-subprocess.call(["./programs/client/nameshares_client", "--input-log", "testnet_setup_log.txt", "--min-delegate-connection-count", "0"])
+n = raw_input("Start build? [Y/n]")
+if n != "n":
+    subprocess.call(["make", "-j2"])
+    subprocess.call(["./programs/client/nameshares_client", "--input-log", "testnet_setup_log.txt", "--min-delegate-connection-count", "0"])
 

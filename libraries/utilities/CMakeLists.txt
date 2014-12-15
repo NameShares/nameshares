@@ -15,11 +15,11 @@ set(sources key_conversion.cpp string_escape.cpp
 configure_file("${CMAKE_CURRENT_SOURCE_DIR}/git_revision.cpp.in" "${CMAKE_CURRENT_BINARY_DIR}/git_revision.cpp" @ONLY)
 list(APPEND sources "${CMAKE_CURRENT_BINARY_DIR}/git_revision.cpp")
 
-add_library( bts_utilities 
+add_library( bts_utilities
              ${sources}
              ${HEADERS} )
 target_link_libraries( bts_utilities fc )
-target_include_directories( bts_utilities 
+target_include_directories( bts_utilities
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 if (USE_PCH)
   set_target_properties(bts_utilities PROPERTIES COTIRE_ADD_UNITY_BUILD FALSE)

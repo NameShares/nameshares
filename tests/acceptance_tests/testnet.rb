@@ -3,13 +3,14 @@
 require 'fileutils'
 require 'yaml'
 require 'open3'
+require 'io/console'
 require_relative './client.rb'
 
 module NameShares
 
   class TestNet
 
-    attr_reader :delegate_node, :alice_node, :bob_node, :running
+    attr_reader :delegate_node, :alice_node, :bob_node, :mail_node, :running
 
     TEMPDIR = 'tmp'
 
@@ -18,11 +19,13 @@ module NameShares
       @delegate_node = nil
       @alice_node = nil
       @bob_node = nil
+      @mail_node = nil
       @p2p_port = 10000 + Random.rand(10000)
       @running = false
 
-      raise 'BTS_BUILD env variable is not set' unless ENV['BTS_BUILD']
+      ENV['BTS_BUILD'] = '../..' unless ENV['BTS_BUILD']
       @client_binary = ENV['BTS_BUILD'] + '/programs/client/nameshares_client'
+      raise @client_binary + ' not found, please set BTS_BUILD env variable if you are using out of source builds' unless File.exist?(@client_binary)
     end
 
     def log(s)
@@ -33,16 +36,6 @@ module NameShares
 
     def td(path); "#{TEMPDIR}/#{path}"; end
 
-    def create_client_node(dir, port, create_wallet=true)
-      clientnode = NameSharesNode.new @client_binary, name: dir, data_dir: td(dir), genesis: 'genesis.json', http_port: port, p2p_port: @p2p_port, logger: @logger
-      clientnode.start(false)
-      if create_wallet
-        clientnode.exec 'wallet_create', 'default', '123456789'
-        clientnode.exec 'wallet_unlock', '9999999', '123456789'
-      end
-      return clientnode
-    end
-
     def for_each_delegate
       for i in 0..100
         yield "delegate#{i}"
@@ -50,12 +43,13 @@ module NameShares
     end
 
     def full_bootstrap
+      STDOUT.puts 'first time test net bootstrap.. this may take several minutes, please be patient..'
       log '========== full bootstrap ==========='
       FileUtils.rm_rf td('delegate_wallet_backup.json')
       FileUtils.rm_rf td('alice_wallet_backup.json')
       FileUtils.rm_rf td('bob_wallet_backup.json')
-      @delegate_node.exec 'wallet_create', 'default', '123456789'
-      @delegate_node.exec 'wallet_unlock', '9999999', '123456789'
+      @delegate_node.exec 'wallet_create', 'default', 'password'
+      @delegate_node.exec 'wallet_unlock', '9999999', 'password'
 
       File.open('genesis.json.keypairs') do |f|
         counter = 0
@@ -63,15 +57,10 @@ module NameShares
           pub_key, priv_key = l.split(' ')
           @delegate_node.exec 'wallet_import_private_key', priv_key, "delegate#{counter}"
           counter += 1
-          #break if counter > 10
         end
       end
 
       sleep 1.0
-
-      for i in 0..10
-        @delegate_node.exec 'wallet_delegate_set_block_production', "delegate#{i}", true
-      end
 
       balancekeys = []
       File.open('genesis.json.balancekeys') do |f|
@@ -83,9 +72,10 @@ module NameShares
       @delegate_node.exec 'wallet_import_private_key', balancekeys[0], "account0", true, true
       @delegate_node.exec 'wallet_import_private_key', balancekeys[1], "account1", true, true
 
-      for i in 0..100
-        @delegate_node.exec 'wallet_delegate_set_block_production', "delegate#{i}", true
-      end
+      # for i in 0..100
+      #   @delegate_node.exec 'wallet_delegate_set_block_production', "delegate#{i}", true
+      # end
+      @delegate_node.exec 'wallet_delegate_set_block_production', 'ALL', true
 
       @delegate_node.exec 'wallet_backup_create', td('delegate_wallet_backup.json')
 
@@ -94,13 +84,14 @@ module NameShares
 
       @bob_node.exec 'wallet_import_private_key', balancekeys[3], 'angel', true, true
       @bob_node.exec 'wallet_backup_create', td('bob_wallet_backup.json')
+      
     end
 
     def quick_bootstrap
       log '========== quick bootstrap ==========='
-      @delegate_node.exec 'wallet_backup_restore', td('delegate_wallet_backup.json'), 'default', '123456789'
-      @alice_node.exec 'wallet_backup_restore', td('alice_wallet_backup.json'), 'default', '123456789'
-      @bob_node.exec 'wallet_backup_restore', td('bob_wallet_backup.json'), 'default', '123456789'
+      @delegate_node.exec 'wallet_backup_restore', td('delegate_wallet_backup.json'), 'default', 'password'
+      @alice_node.exec 'wallet_backup_restore', td('alice_wallet_backup.json'), 'default', 'password'
+      @bob_node.exec 'wallet_backup_restore', td('bob_wallet_backup.json'), 'default', 'password'
     end
 
     def wait_nodes(nodes)
@@ -132,7 +123,7 @@ module NameShares
       @bob_node = NameSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, p2p_port: @p2p_port, logger: @logger
       @bob_node.start(false)
 
-      nodes = [@delegate_node, @alice_node, @bob_node]
+      nodes = [@delegate_node, @alice_node, @bob_node, @mail_node]
       wait_nodes(nodes)
     end
 
@@ -141,20 +132,31 @@ module NameShares
       recreate_dir td('delegate')
       recreate_dir td('alice')
       recreate_dir td('bob')
+      recreate_dir td('mail')
 
       quick = File.exist?(td('delegate_wallet_backup.json'))
 
       @delegate_node = NameSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
       @delegate_node.start(false)
 
-      @alice_node = create_client_node('alice', 5691, !quick)
-      @bob_node = create_client_node('bob', 5692, !quick)
+      @alice_node = NameSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, rpc_port: 6691, p2p_port: @p2p_port, logger: @logger
+      @alice_node.start
+
+      @bob_node = NameSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, rpc_port: 6692, p2p_port: @p2p_port, logger: @logger
+      @bob_node.start
+      
+      @mail_node = NameSharesNode.new @client_binary, name: 'mail', data_dir: td('mail'), genesis: 'genesis.json', http_port: 5693, rpc_port: 6693, p2p_port: @p2p_port, logger: @logger
+      # Don't start it here, instead mail_steps.rb will start it on request
 
       wait_nodes([@delegate_node, @alice_node, @bob_node])
 
       if quick
         quick_bootstrap
       else
+        @alice_node.exec 'wallet_create', 'default', 'password'
+        @alice_node.exec 'wallet_unlock', '9999999', 'password'
+        @bob_node.exec 'wallet_create', 'default', 'password'
+        @bob_node.exec 'wallet_unlock', '9999999', 'password'
         full_bootstrap
       end
 
@@ -163,10 +165,45 @@ module NameShares
 
     def shutdown
       log 'shutdown'
-      @delegate_node.exec 'quit'
-      @alice_node.exec 'quit' if @alice_node
-      @bob_node.exec 'quit' if @bob_node
+      @delegate_node.stop
+      @alice_node.stop if @alice_node
+      @bob_node.stop if @bob_node
+      @mail_node.stop if @mail_node and @mail_node.running
       @running = false
+    end
+
+    def pause
+      @alice_node.exec 'execute_command_line', 'enable_raw'
+      @bob_node.exec 'execute_command_line', 'enable_raw'
+      @mail_node.exec 'execute_command_line', 'enable_raw' if @mail_node.running
+      while true
+        STDOUT.puts '@pause: use the following urls to access the nodes via browser:'
+        STDOUT.puts "- delegate node: #{@delegate_node.url}"
+        STDOUT.puts "- alice node: #{@alice_node.url}"
+        STDOUT.puts "- bob node: #{@bob_node.url}"
+        STDOUT.puts 'or press [d],[a], [b], or [m] to have console access'
+        STDOUT.puts 'or press any other key to shutdown testnet and continue..'
+        c = ''
+        begin
+          STDIN.echo = false
+          STDIN.raw!
+          c = STDIN.getc
+        ensure
+          STDIN.echo = true
+          STDIN.cooked!
+        end
+        if c == 'd'
+          @delegate_node.interactive_mode
+        elsif c == 'a'
+          @alice_node.interactive_mode
+        elsif c == 'b'
+          @bob_node.interactive_mode
+        elsif c == 'm'
+          @mail_node.interactive_mode
+        else
+          break
+        end
+      end
     end
 
   end
@@ -180,8 +217,7 @@ if $0 == __FILE__
   else
     testnet.start
   end
-  puts 'testnet is running, press any key to exit..'
-  STDIN.getc
+  testnet.pause
+  puts 'exiting..'
   testnet.shutdown
-  puts 'finished'
 end
