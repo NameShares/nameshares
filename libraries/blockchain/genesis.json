@@ -2,167 +2,167 @@
     "timestamp": "2014-12-15T06:43:54", 
     "names": [
         {
-            "owner": "NMST6kX8yiVzKQNYwKPDYiqcemR7T6LKN9ME8uqoP4Vy7cWqYCrbfc", 
+            "owner": "NMS6kX8yiVzKQNYwKPDYiqcemR7T6LKN9ME8uqoP4Vy7cWqYCrbfc", 
             "delegate_pay_rate": 1, 
             "name": "init0"
         }, 
         {
-            "owner": "NMST7s4kmBfuxsbuxNUJmx8VfdHpG5pa8HMxDoiHauPcGMMHbK8HEX", 
+            "owner": "NMS7s4kmBfuxsbuxNUJmx8VfdHpG5pa8HMxDoiHauPcGMMHbK8HEX", 
             "delegate_pay_rate": 1, 
             "name": "init1"
         }, 
         {
-            "owner": "NMST4wZQ9nVhcrL6r9UymdrZX5VrtLTae5rPGHfjw5e6gvep483Y42", 
+            "owner": "NMS4wZQ9nVhcrL6r9UymdrZX5VrtLTae5rPGHfjw5e6gvep483Y42", 
             "delegate_pay_rate": 1, 
             "name": "init2"
         }, 
         {
-            "owner": "NMST6LAptgdno4uqUPTHpXz3y8MhCLitQr9VrUEADT4uGk8rXJSUft", 
+            "owner": "NMS6LAptgdno4uqUPTHpXz3y8MhCLitQr9VrUEADT4uGk8rXJSUft", 
             "delegate_pay_rate": 1, 
             "name": "init3"
         }, 
         {
-            "owner": "NMST6tQr6Rw4ZiK9ZPTHKaaotzrvkXE7W2UaUUNz1Co6x1Afb2Qdwg", 
+            "owner": "NMS6tQr6Rw4ZiK9ZPTHKaaotzrvkXE7W2UaUUNz1Co6x1Afb2Qdwg", 
             "delegate_pay_rate": 1, 
             "name": "init4"
         }, 
         {
-            "owner": "NMST83Cb6yP8ue7bfFyS2NVfm3PTguh4hJBJshbJukFYJAdra5wJbb", 
+            "owner": "NMS83Cb6yP8ue7bfFyS2NVfm3PTguh4hJBJshbJukFYJAdra5wJbb", 
             "delegate_pay_rate": 1, 
             "name": "init5"
         }, 
         {
-            "owner": "NMST8b3N3Y114NVCmnx57hm9dz9ZjSRopkMgjWnSHmpKyu7UJgdwtc", 
+            "owner": "NMS8b3N3Y114NVCmnx57hm9dz9ZjSRopkMgjWnSHmpKyu7UJgdwtc", 
             "delegate_pay_rate": 1, 
             "name": "init6"
         }, 
         {
-            "owner": "NMST5bh69xYc8fVDG8N1gpgDNuuuocF47LtPxqxw1ZmxSq82o8mrjf", 
+            "owner": "NMS5bh69xYc8fVDG8N1gpgDNuuuocF47LtPxqxw1ZmxSq82o8mrjf", 
             "delegate_pay_rate": 1, 
             "name": "init7"
         }, 
         {
-            "owner": "NMST7hxiHhuXbyoEXUWgvxqEPc4Fb3RyUWRtXiBxE9m4KSKKoR9sXo", 
+            "owner": "NMS7hxiHhuXbyoEXUWgvxqEPc4Fb3RyUWRtXiBxE9m4KSKKoR9sXo", 
             "delegate_pay_rate": 1, 
             "name": "init8"
         }, 
         {
-            "owner": "NMST6zF12fvwru2kbvjcDEyCmA9DW3v1aH4W6ZW11EL3TDshx4M9d6", 
+            "owner": "NMS6zF12fvwru2kbvjcDEyCmA9DW3v1aH4W6ZW11EL3TDshx4M9d6", 
             "delegate_pay_rate": 1, 
             "name": "init9"
         }, 
         {
-            "owner": "NMST6sEHrq7vBuNFN7nNfS7Jtb53aH5y2oQUKddE57tW9dnezZUuyR", 
+            "owner": "NMS6sEHrq7vBuNFN7nNfS7Jtb53aH5y2oQUKddE57tW9dnezZUuyR", 
             "delegate_pay_rate": 1, 
             "name": "init10"
         }, 
         {
-            "owner": "NMST8k7n6QnjezHXaMpynJEJfwe1FJygjLAkVdYDatFBoWLkw5eWuh", 
+            "owner": "NMS8k7n6QnjezHXaMpynJEJfwe1FJygjLAkVdYDatFBoWLkw5eWuh", 
             "delegate_pay_rate": 1, 
             "name": "init11"
         }, 
         {
-            "owner": "NMST7WoTYRGExbNepSnsEpoazMT9kmvbsnjTVjTuj7aZQYraMCLomc", 
+            "owner": "NMS7WoTYRGExbNepSnsEpoazMT9kmvbsnjTVjTuj7aZQYraMCLomc", 
             "delegate_pay_rate": 1, 
             "name": "init12"
         }, 
         {
-            "owner": "NMST8djCy9NRdcZbLYADPSycyHYm4gX36iaqN5SG32iDyu1evWKHHW", 
+            "owner": "NMS8djCy9NRdcZbLYADPSycyHYm4gX36iaqN5SG32iDyu1evWKHHW", 
             "delegate_pay_rate": 1, 
             "name": "init13"
         }, 
         {
-            "owner": "NMST8ahywFV4cve4YbATZUoqh2sKfR7gG8ihLxdCkYwR19CzpeaLqg", 
+            "owner": "NMS8ahywFV4cve4YbATZUoqh2sKfR7gG8ihLxdCkYwR19CzpeaLqg", 
             "delegate_pay_rate": 1, 
             "name": "init14"
         }, 
         {
-            "owner": "NMST8JUPRCwe31HsqdUmTzTskAUB2PWCie5PnvxqLkjNirXiiXHPur", 
+            "owner": "NMS8JUPRCwe31HsqdUmTzTskAUB2PWCie5PnvxqLkjNirXiiXHPur", 
             "delegate_pay_rate": 1, 
             "name": "init15"
         }, 
         {
-            "owner": "NMST6m7yC9j1aHLSq3odShXZf3wEQJtzsHiJZ3cJQrxQQSXvgnTfcV", 
+            "owner": "NMS6m7yC9j1aHLSq3odShXZf3wEQJtzsHiJZ3cJQrxQQSXvgnTfcV", 
             "delegate_pay_rate": 1, 
             "name": "init16"
         }, 
         {
-            "owner": "NMST8jLi4QCmERWcEycMGa6XiWbmJywAM5bzrbrVAPwZ69Gewa2QaU", 
+            "owner": "NMS8jLi4QCmERWcEycMGa6XiWbmJywAM5bzrbrVAPwZ69Gewa2QaU", 
             "delegate_pay_rate": 1, 
             "name": "init17"
         }, 
         {
-            "owner": "NMST8SMfP2TYyc9anMXdZPak13ZaERzqBLXqY8hjcPVCvPw5snzuRK", 
+            "owner": "NMS8SMfP2TYyc9anMXdZPak13ZaERzqBLXqY8hjcPVCvPw5snzuRK", 
             "delegate_pay_rate": 1, 
             "name": "init18"
         }, 
         {
-            "owner": "NMST5vNCftD34UDkPZpUHf1vBBe9AZ6G5ErceND6TBfhpY1avfN7aR", 
+            "owner": "NMS5vNCftD34UDkPZpUHf1vBBe9AZ6G5ErceND6TBfhpY1avfN7aR", 
             "delegate_pay_rate": 1, 
             "name": "init19"
         }, 
         {
-            "owner": "NMST74gJoGdvpnD4ZbchvyLRy3685HbRirH3LvvzUH6S6hrjMCG64U", 
+            "owner": "NMS74gJoGdvpnD4ZbchvyLRy3685HbRirH3LvvzUH6S6hrjMCG64U", 
             "delegate_pay_rate": 1, 
             "name": "init20"
         }, 
         {
-            "owner": "NMST6T42hWSS7KSqhkFLcMtWpivuhrYaCLMoeamq4EW6qw6wM1JNSh", 
+            "owner": "NMS6T42hWSS7KSqhkFLcMtWpivuhrYaCLMoeamq4EW6qw6wM1JNSh", 
             "delegate_pay_rate": 1, 
             "name": "init21"
         }, 
         {
-            "owner": "NMST5rPa4BzZuuDx7rUkkkAFtw8EFnNg3M2qr1VWrhivyRHXkJR3v6", 
+            "owner": "NMS5rPa4BzZuuDx7rUkkkAFtw8EFnNg3M2qr1VWrhivyRHXkJR3v6", 
             "delegate_pay_rate": 1, 
             "name": "init22"
         }, 
         {
-            "owner": "NMST6L8rgq3hDuWospdYGUZfKv1cdEbxVbQJAzD2LyXNyksBgE6QMs", 
+            "owner": "NMS6L8rgq3hDuWospdYGUZfKv1cdEbxVbQJAzD2LyXNyksBgE6QMs", 
             "delegate_pay_rate": 1, 
             "name": "init23"
         }, 
         {
-            "owner": "NMST8FK3UHyEegBJ2teoDyYhc3D75dChRdodFS7LyEbt2ESprhnVCs", 
+            "owner": "NMS8FK3UHyEegBJ2teoDyYhc3D75dChRdodFS7LyEbt2ESprhnVCs", 
             "delegate_pay_rate": 1, 
             "name": "init24"
         }, 
         {
-            "owner": "NMST7RDBtXF91eSb7M2334nCZ5A3ytLsbkuzcxFdpfsGvYoSrNkP8Q", 
+            "owner": "NMS7RDBtXF91eSb7M2334nCZ5A3ytLsbkuzcxFdpfsGvYoSrNkP8Q", 
             "delegate_pay_rate": 1, 
             "name": "init25"
         }, 
         {
-            "owner": "NMST7kb9yap9bQwN2aAREuU2eVn2YftLFM4uYYnBkaf2Z2Tt8aztXW", 
+            "owner": "NMS7kb9yap9bQwN2aAREuU2eVn2YftLFM4uYYnBkaf2Z2Tt8aztXW", 
             "delegate_pay_rate": 1, 
             "name": "init26"
         }, 
         {
-            "owner": "NMST5pdS1Vo7gXVizD6on3ZT8eNXiqqj9ADZEtWMsLZnfp68gCh5Nw", 
+            "owner": "NMS5pdS1Vo7gXVizD6on3ZT8eNXiqqj9ADZEtWMsLZnfp68gCh5Nw", 
             "delegate_pay_rate": 1, 
             "name": "init27"
         }, 
         {
-            "owner": "NMST59mH8w3QqFbrA8pd1qXNo97o5RERaU4Yga5xxZ4tLpkGnFuZfw", 
+            "owner": "NMS59mH8w3QqFbrA8pd1qXNo97o5RERaU4Yga5xxZ4tLpkGnFuZfw", 
             "delegate_pay_rate": 1, 
             "name": "init28"
         }, 
         {
-            "owner": "NMST5SpDUzmHtEga7C7xqc5YsiD7ZvwLkjLkhrdEsz88jP5w9mP354", 
+            "owner": "NMS5SpDUzmHtEga7C7xqc5YsiD7ZvwLkjLkhrdEsz88jP5w9mP354", 
             "delegate_pay_rate": 1, 
             "name": "init29"
         }, 
         {
-            "owner": "NMST5usQq6XY3XCNjDYT9kkAJ8A7eotvt1ddyKsUHEf2vpqwavLX6A", 
+            "owner": "NMS5usQq6XY3XCNjDYT9kkAJ8A7eotvt1ddyKsUHEf2vpqwavLX6A", 
             "delegate_pay_rate": 1, 
             "name": "init30"
         }, 
         {
-            "owner": "NMST5ZfBPVnuya3SNtLbabRfuQCJw3sELyva58GeJSYxRVEsBXvZti", 
+            "owner": "NMS5ZfBPVnuya3SNtLbabRfuQCJw3sELyva58GeJSYxRVEsBXvZti", 
             "delegate_pay_rate": 1, 
             "name": "init31"
         }, 
         {
-            "owner": "NMST6xauyAbcZmqgMXjj4JhxYLcBpGkjgQdg9XwDKCLP5GrtvE4sRT", 
+            "owner": "NMS6xauyAbcZmqgMXjj4JhxYLcBpGkjgQdg9XwDKCLP5GrtvE4sRT", 
             "delegate_pay_rate": 1, 
             "name": "init32"
         }

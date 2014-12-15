@@ -19,10 +19,10 @@
  *
  *  Changing these parameters will result in a hard fork.
  */
-#define BTS_ADDRESS_PREFIX                                  "NMST"
-#define BTS_BLOCKCHAIN_SYMBOL                               "NMST"
+#define BTS_ADDRESS_PREFIX                                  "NMS"
+#define BTS_BLOCKCHAIN_SYMBOL                               "NMS"
 #define BTS_BLOCKCHAIN_NAME                                 "NameShares"
-#define BTS_BLOCKCHAIN_DESCRIPTION                          "NameShares - Test Network"
+#define BTS_BLOCKCHAIN_DESCRIPTION                          "NameShares Test Network"
 #define BTS_BLOCKCHAIN_PRECISION                            1  // 00000
 #define BTS_BLOCKCHAIN_MAX_TRANSACTION_EXPIRATION_SEC       (60*60*24*2)
 #define BTS_BLOCKCHAIN_MIN_YIELD_PERIOD_SEC                 (60*60*24) // 24 hours
