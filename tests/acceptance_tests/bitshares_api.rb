@@ -36,7 +36,7 @@ module NameShares
     
     class Mail
       def self.method_missing(name, *params)
-        BitShares::API::rpc.request("mail_" + name.to_s, params)
+        NameShares::API::rpc.request("mail_" + name.to_s, params)
       end
     end
 

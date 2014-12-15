@@ -27,13 +27,13 @@ Building NameShares on OS X 10.9
    brew install google-perftools
    ```
 
-7. Clone the BitShares repository:
+7. Clone the NameShares repository:
    ```
-   git clone git@github.com:BitShares/nameshares.git
+   git clone git@github.com:NameShares/nameshares.git
    cd nameshares
    ```
 
-8. Build BitShares:
+8. Build NameShares:
    ```
    git submodule update --init
    cmake .
