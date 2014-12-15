@@ -21,8 +21,8 @@
  */
 #define BTS_ADDRESS_PREFIX                                  "NMST"
 #define BTS_BLOCKCHAIN_SYMBOL                               "NMST"
-#define BTS_BLOCKCHAIN_NAME                                 "NameShares-T" + BTS_TEST_NETWORK_VERSION
-#define BTS_BLOCKCHAIN_DESCRIPTION                          "NameShares - Test Network " + BTS_TEST_NETWORK_VERSION
+#define BTS_BLOCKCHAIN_NAME                                 "NameShares-T"
+#define BTS_BLOCKCHAIN_DESCRIPTION                          "NameShares - Test Network "
 #define BTS_BLOCKCHAIN_PRECISION                            1  // 00000
 #define BTS_BLOCKCHAIN_MAX_TRANSACTION_EXPIRATION_SEC       (60*60*24*2)
 #define BTS_BLOCKCHAIN_MIN_YIELD_PERIOD_SEC                 (60*60*24) // 24 hours
