@@ -1,168 +1,168 @@
 {
-    "timestamp": "2014-12-15T06:43:54", 
+    "timestamp": "2014-12-15T18:56:53", 
     "names": [
         {
-            "owner": "NMS6kX8yiVzKQNYwKPDYiqcemR7T6LKN9ME8uqoP4Vy7cWqYCrbfc", 
+            "owner": "NMS8ahhti4eacx526R2hKhgeLt9o1oGAqy5qPjmsPwzAFxpekMZfT", 
             "delegate_pay_rate": 1, 
             "name": "init0"
         }, 
         {
-            "owner": "NMS7s4kmBfuxsbuxNUJmx8VfdHpG5pa8HMxDoiHauPcGMMHbK8HEX", 
+            "owner": "NMS7HYPRitwapp4nwHbbERYuBMnECVDbB8tcHHsBJDfeQW3dYExfj", 
             "delegate_pay_rate": 1, 
             "name": "init1"
         }, 
         {
-            "owner": "NMS4wZQ9nVhcrL6r9UymdrZX5VrtLTae5rPGHfjw5e6gvep483Y42", 
+            "owner": "NMS8mcViK6Q8vd8NqwWiL74iWJvjYLEWycGeU5EKNingo8Cgj3hft", 
             "delegate_pay_rate": 1, 
             "name": "init2"
         }, 
         {
-            "owner": "NMS6LAptgdno4uqUPTHpXz3y8MhCLitQr9VrUEADT4uGk8rXJSUft", 
+            "owner": "NMS8am6umLmbZKsXdrFe1GvFEVgZoUsnBPSQ2SpAsqLJN4UoBpQa6", 
             "delegate_pay_rate": 1, 
             "name": "init3"
         }, 
         {
-            "owner": "NMS6tQr6Rw4ZiK9ZPTHKaaotzrvkXE7W2UaUUNz1Co6x1Afb2Qdwg", 
+            "owner": "NMS6tRvVn46AUzWXa59JvjsgsHPfJjtNW5Eb6XmpRgjmZ4DctZ8Zk", 
             "delegate_pay_rate": 1, 
             "name": "init4"
         }, 
         {
-            "owner": "NMS83Cb6yP8ue7bfFyS2NVfm3PTguh4hJBJshbJukFYJAdra5wJbb", 
+            "owner": "NMS5PcV4zjQ9JbhQmfuBEuzvomiM1msxGM734wo2C9MjAmoQkyc8o", 
             "delegate_pay_rate": 1, 
             "name": "init5"
         }, 
         {
-            "owner": "NMS8b3N3Y114NVCmnx57hm9dz9ZjSRopkMgjWnSHmpKyu7UJgdwtc", 
+            "owner": "NMS6Qq7aC2eeiUwrVQ4yYicwB51dkqhkobgcoo8dcnMvzRVEtr7Gb", 
             "delegate_pay_rate": 1, 
             "name": "init6"
         }, 
         {
-            "owner": "NMS5bh69xYc8fVDG8N1gpgDNuuuocF47LtPxqxw1ZmxSq82o8mrjf", 
+            "owner": "NMS6DBbxeU2U83uB7dPoyx1Waqx4zQxoLWJzrXvMT7xEj962iKgFL", 
             "delegate_pay_rate": 1, 
             "name": "init7"
         }, 
         {
-            "owner": "NMS7hxiHhuXbyoEXUWgvxqEPc4Fb3RyUWRtXiBxE9m4KSKKoR9sXo", 
+            "owner": "NMS6Zug3AEMHxDEoVHmvgYSiRwMWKChzybEzsVme7Y22yJaB8UAAT", 
             "delegate_pay_rate": 1, 
             "name": "init8"
         }, 
         {
-            "owner": "NMS6zF12fvwru2kbvjcDEyCmA9DW3v1aH4W6ZW11EL3TDshx4M9d6", 
+            "owner": "NMS6EnqTmRc54FeKMXS3qxYXpFMk1ZheTESM4C7CrTc1AiomjHw39", 
             "delegate_pay_rate": 1, 
             "name": "init9"
         }, 
         {
-            "owner": "NMS6sEHrq7vBuNFN7nNfS7Jtb53aH5y2oQUKddE57tW9dnezZUuyR", 
+            "owner": "NMS6DLerYwYhNbNYKVa7evJicFP2SzWYWtGsLcDMsPCvKVL1Dx7iB", 
             "delegate_pay_rate": 1, 
             "name": "init10"
         }, 
         {
-            "owner": "NMS8k7n6QnjezHXaMpynJEJfwe1FJygjLAkVdYDatFBoWLkw5eWuh", 
+            "owner": "NMS6S5Tz7aeRZEP49h8PjrS9kGeYVB13Uo6inmfxub1ZEu3oN9FFd", 
             "delegate_pay_rate": 1, 
             "name": "init11"
         }, 
         {
-            "owner": "NMS7WoTYRGExbNepSnsEpoazMT9kmvbsnjTVjTuj7aZQYraMCLomc", 
+            "owner": "NMS7jCHkLAUcZugHXLSvVa8R3t1MWFnKyC7w2pgi1euwxGGVoDMxc", 
             "delegate_pay_rate": 1, 
             "name": "init12"
         }, 
         {
-            "owner": "NMS8djCy9NRdcZbLYADPSycyHYm4gX36iaqN5SG32iDyu1evWKHHW", 
+            "owner": "NMS7ewRq8rUJhoT3Uyf57PBKPyDBvV8j3PK687UveUakyycPBqxKr", 
             "delegate_pay_rate": 1, 
             "name": "init13"
         }, 
         {
-            "owner": "NMS8ahywFV4cve4YbATZUoqh2sKfR7gG8ihLxdCkYwR19CzpeaLqg", 
+            "owner": "NMS5JhASrnPpe8CQWX6YtJrjnqfqbJ5kFLLH87QB5X7pZcevTm63s", 
             "delegate_pay_rate": 1, 
             "name": "init14"
         }, 
         {
-            "owner": "NMS8JUPRCwe31HsqdUmTzTskAUB2PWCie5PnvxqLkjNirXiiXHPur", 
+            "owner": "NMS7PkMsaa1A2EuXG45221QwjZ4zXdZPNpgFEChEqHictkYfypLFb", 
             "delegate_pay_rate": 1, 
             "name": "init15"
         }, 
         {
-            "owner": "NMS6m7yC9j1aHLSq3odShXZf3wEQJtzsHiJZ3cJQrxQQSXvgnTfcV", 
+            "owner": "NMS5jHA2MG8c2dz2STkgNvh9M9ABHVD9mnn4GiweDXVebgkMN9Y2q", 
             "delegate_pay_rate": 1, 
             "name": "init16"
         }, 
         {
-            "owner": "NMS8jLi4QCmERWcEycMGa6XiWbmJywAM5bzrbrVAPwZ69Gewa2QaU", 
+            "owner": "NMS7KfHDd1xwAcMCEQyG5mYG9HfoeBWrVBfqkaWZxnYfokd33eaT2", 
             "delegate_pay_rate": 1, 
             "name": "init17"
         }, 
         {
-            "owner": "NMS8SMfP2TYyc9anMXdZPak13ZaERzqBLXqY8hjcPVCvPw5snzuRK", 
+            "owner": "NMS6Va1aJGW7YUrm2ew3v8ZqzNX6HAwejBAiTEXxTjLiZPkub4QUp", 
             "delegate_pay_rate": 1, 
             "name": "init18"
         }, 
         {
-            "owner": "NMS5vNCftD34UDkPZpUHf1vBBe9AZ6G5ErceND6TBfhpY1avfN7aR", 
+            "owner": "NMS7Bfmc1v3NFooA7uyE9RMgZMy7uwhvvWbCn59Ue9JV4H9fp98t3", 
             "delegate_pay_rate": 1, 
             "name": "init19"
         }, 
         {
-            "owner": "NMS74gJoGdvpnD4ZbchvyLRy3685HbRirH3LvvzUH6S6hrjMCG64U", 
+            "owner": "NMS7z5HAb6utiFXW7qnJvNYZMyekQEo1G43SuYvziNPmztrZGDkfQ", 
             "delegate_pay_rate": 1, 
             "name": "init20"
         }, 
         {
-            "owner": "NMS6T42hWSS7KSqhkFLcMtWpivuhrYaCLMoeamq4EW6qw6wM1JNSh", 
+            "owner": "NMS8XtAaUVqqTEFyR6d6QChmaafS3nCuUyGCUM3uTz5B15N1J9JFP", 
             "delegate_pay_rate": 1, 
             "name": "init21"
         }, 
         {
-            "owner": "NMS5rPa4BzZuuDx7rUkkkAFtw8EFnNg3M2qr1VWrhivyRHXkJR3v6", 
+            "owner": "NMS6XPfKhTJQHhJAd91Mhho7xfDCtpryXmthQN9d1tgQcwaHihDVP", 
             "delegate_pay_rate": 1, 
             "name": "init22"
         }, 
         {
-            "owner": "NMS6L8rgq3hDuWospdYGUZfKv1cdEbxVbQJAzD2LyXNyksBgE6QMs", 
+            "owner": "NMS54hSk8QdcYWgCramR91oRjjjYMb3s1FkpwZ6jqVidn93w1SuiW", 
             "delegate_pay_rate": 1, 
             "name": "init23"
         }, 
         {
-            "owner": "NMS8FK3UHyEegBJ2teoDyYhc3D75dChRdodFS7LyEbt2ESprhnVCs", 
+            "owner": "NMS6hkZRBrkhqQBovUyJ9MZ2MyvCiecfW8EwVGhDr1MVMsu5us4we", 
             "delegate_pay_rate": 1, 
             "name": "init24"
         }, 
         {
-            "owner": "NMS7RDBtXF91eSb7M2334nCZ5A3ytLsbkuzcxFdpfsGvYoSrNkP8Q", 
+            "owner": "NMS8UYMVaC6So4fox8vhvSJD4SiaEWYKJAvtLDqS6TYWzmqcZhvLc", 
             "delegate_pay_rate": 1, 
             "name": "init25"
         }, 
         {
-            "owner": "NMS7kb9yap9bQwN2aAREuU2eVn2YftLFM4uYYnBkaf2Z2Tt8aztXW", 
+            "owner": "NMS6mZSTkW4msBWbNvSAfzVZQF8UWsCX1vF5ompLj8WZri5Ls2oVv", 
             "delegate_pay_rate": 1, 
             "name": "init26"
         }, 
         {
-            "owner": "NMS5pdS1Vo7gXVizD6on3ZT8eNXiqqj9ADZEtWMsLZnfp68gCh5Nw", 
+            "owner": "NMS6BRyRAGpkKNfU9m3buvT8jKhbq2gvGM4H1Anu8bAgREiPBdeTz", 
             "delegate_pay_rate": 1, 
             "name": "init27"
         }, 
         {
-            "owner": "NMS59mH8w3QqFbrA8pd1qXNo97o5RERaU4Yga5xxZ4tLpkGnFuZfw", 
+            "owner": "NMS6EHZGS18A2oP4YTTU83QrUmwXEz4UzMmcHxhKejBNoyfJQELPT", 
             "delegate_pay_rate": 1, 
             "name": "init28"
         }, 
         {
-            "owner": "NMS5SpDUzmHtEga7C7xqc5YsiD7ZvwLkjLkhrdEsz88jP5w9mP354", 
+            "owner": "NMS7z6YJx3qYQuRLiMhKp9W5iMP1STG6xZPB5SgF2ekA8Z3NoSFaw", 
             "delegate_pay_rate": 1, 
             "name": "init29"
         }, 
         {
-            "owner": "NMS5usQq6XY3XCNjDYT9kkAJ8A7eotvt1ddyKsUHEf2vpqwavLX6A", 
+            "owner": "NMS5pdDeBSxNaGobzZopzfXtUVW5Cze1TeEA8k2WhGfWUQ2YwyC7W", 
             "delegate_pay_rate": 1, 
             "name": "init30"
         }, 
         {
-            "owner": "NMS5ZfBPVnuya3SNtLbabRfuQCJw3sELyva58GeJSYxRVEsBXvZti", 
+            "owner": "NMS7c13vxxwvVzirz57SjwaMpmKiyr95FnvVEvyjYJB7aNnEVhf26", 
             "delegate_pay_rate": 1, 
             "name": "init31"
         }, 
         {
-            "owner": "NMS6xauyAbcZmqgMXjj4JhxYLcBpGkjgQdg9XwDKCLP5GrtvE4sRT", 
+            "owner": "NMS8hmqtvYTe3xiScRfcgB9hrkwSU6yStXgdmXixGu2dvSThKyMRW", 
             "delegate_pay_rate": 1, 
             "name": "init32"
         }
