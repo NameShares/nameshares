@@ -70,3 +70,9 @@ snapshots/*.json
 BitShares.dmg
 _CPack_Packages/*
 install_manifest.txt
+.cproject
+.idea
+.project
+.pydevproject
+.settings
+Debug
