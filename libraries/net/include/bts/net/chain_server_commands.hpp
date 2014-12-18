@@ -1,8 +1,8 @@
 #pragma once
 
 /**
- * This is an internal header for bitshares. It does not contain any classes or functions intended for clients.
- * It exists purely as an implementation detail, and may change at any time without notice.
+ * This is an internal header for the nameshares. It does not contain any classes or functions intended for
+ * clients. It exists purely as an implementation detail, and may change at any time without notice.
  */
 
 #include <fc/reflect/reflect.hpp>

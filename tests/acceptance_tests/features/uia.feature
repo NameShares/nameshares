@@ -1,7 +1,7 @@
 Feature: User Issued Assets
   As centralized bitcoin exchange owner
-  I want to issue my own IOUs on BitShares exchange
-  So I can profit from charging BitShares users a fee for depositing/withdrawing my IOUs
+  I want to issue my own IOUs on NameShares exchange
+  So I can profit from charging NameShares users a fee for depositing/withdrawing my IOUs
 
 
   Background: Alice creates asset and issues all shares to herself
@@ -53,5 +53,5 @@ Feature: User Issued Assets
 #    1. I create Bitstamp account
 #    2. I deposit BTC to Bitstamp
 #    3. I buy BitstampBTC
-#    4. I withdraw BitstampBTC to my BitShares account
+#    4. I withdraw BitstampBTC to my NameShares account
 #    5. I trade BitstampBTC to BitBTC

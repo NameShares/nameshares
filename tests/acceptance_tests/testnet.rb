@@ -6,7 +6,7 @@ require 'open3'
 require 'io/console'
 require_relative './client.rb'
 
-module BitShares
+module NameShares
 
   class TestNet
 
@@ -24,7 +24,7 @@ module BitShares
       @running = false
 
       ENV['BTS_BUILD'] = '../..' unless ENV['BTS_BUILD']
-      @client_binary = ENV['BTS_BUILD'] + '/programs/client/bitshares_client'
+      @client_binary = ENV['BTS_BUILD'] + '/programs/client/nameshares_client'
       raise @client_binary + ' not found, please set BTS_BUILD env variable if you are using out of source builds' unless File.exist?(@client_binary)
     end
 
@@ -114,17 +114,14 @@ module BitShares
     end
 
     def start
-      @delegate_node = BitSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, rpc_port: 6690, p2p_port: @p2p_port, delegate: true, logger: @logger
-      @delegate_node.start
+      @delegate_node = NameSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
+      @delegate_node.start(false)
 
-      @alice_node = BitSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, rpc_port: 6691, p2p_port: @p2p_port, logger: @logger
-      @alice_node.start
+      @alice_node = NameSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, p2p_port: @p2p_port, logger: @logger
+      @alice_node.start(false)
 
-      @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, rpc_port: 6692, p2p_port: @p2p_port, logger: @logger
-      @bob_node.start
-      
-      @mail_node = BitSharesNode.new @client_binary, name: 'mail', data_dir: td('mail'), genesis: 'genesis.json', http_port: 5693, rpc_port: 6693, p2p_port: @p2p_port, logger: @logger
-      @mail_node.start
+      @bob_node = NameSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, p2p_port: @p2p_port, logger: @logger
+      @bob_node.start(false)
 
       nodes = [@delegate_node, @alice_node, @bob_node, @mail_node]
       wait_nodes(nodes)
@@ -150,16 +147,16 @@ module BitShares
 
       quick = File.exist?(td('delegate_wallet_backup.json'))
 
-      @delegate_node = BitSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, rpc_port: 6690, p2p_port: @p2p_port, delegate: true, logger: @logger
-      @delegate_node.start
+      @delegate_node = NameSharesNode.new @client_binary, name: 'delegate', data_dir: td('delegate'), genesis: 'genesis.json', http_port: 5690, p2p_port: @p2p_port, delegate: true, logger: @logger
+      @delegate_node.start(false)
 
-      @alice_node = BitSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, rpc_port: 6691, p2p_port: @p2p_port, logger: @logger
+      @alice_node = NameSharesNode.new @client_binary, name: 'alice', data_dir: td('alice'), genesis: 'genesis.json', http_port: 5691, rpc_port: 6691, p2p_port: @p2p_port, logger: @logger
       @alice_node.start
 
-      @bob_node = BitSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, rpc_port: 6692, p2p_port: @p2p_port, logger: @logger
+      @bob_node = NameSharesNode.new @client_binary, name: 'bob', data_dir: td('bob'), genesis: 'genesis.json', http_port: 5692, rpc_port: 6692, p2p_port: @p2p_port, logger: @logger
       @bob_node.start
       
-      @mail_node = BitSharesNode.new @client_binary, name: 'mail', data_dir: td('mail'), genesis: 'genesis.json', http_port: 5693, rpc_port: 6693, p2p_port: @p2p_port, logger: @logger
+      @mail_node = NameSharesNode.new @client_binary, name: 'mail', data_dir: td('mail'), genesis: 'genesis.json', http_port: 5693, rpc_port: 6693, p2p_port: @p2p_port, logger: @logger
       # Don't start it here, instead mail_steps.rb will start it on request
 
       wait_nodes([@delegate_node, @alice_node, @bob_node])
@@ -225,7 +222,7 @@ module BitShares
 end
 
 if $0 == __FILE__
-  testnet = BitShares::TestNet.new
+  testnet = NameShares::TestNet.new
   if ARGV[0] == '--create'
     testnet.create
   else

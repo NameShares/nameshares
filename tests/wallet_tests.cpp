@@ -503,8 +503,8 @@ void run_regression_test(fc::path test_dir, bool with_network)
   //  for each verify_file object,
   //    compare generated log files in datadirs to golden reference file (i.e. input command files)
 
-  // caller of this routine should have made sure we are already in bitshares/test dir.
-  // so we pop dirs to create regression_tests_results as sibling to bitshares source directory
+  // caller of this routine should have made sure we are already in nameshares/test dir.
+  // so we pop dirs to create regression_tests_results as sibling to nameshares source directory
   // (because we don't want the test results to be inadvertantly added to git repo).
   fc::path original_working_directory = boost::filesystem::current_path();
   fc::path regression_test_output_directory = original_working_directory.parent_path().parent_path();
@@ -562,7 +562,7 @@ void run_regression_test(fc::path test_dir, bool with_network)
       //append genesis_file to load to command-line for now (later should be pre-created in test dir I think)
       line += " --genesis-config " + genesis_json_file.string();
 
-      //if no data-dir specified, put in ../bitshares/regression_tests/${test dir}/${client_name}
+      //if no data-dir specified, put in ../nameshares/regression_tests/${test dir}/${client_name}
       string client_name = line.substr(0, line.find(' '));
       size_t data_dir_position = line.find("--data-dir");
       if (data_dir_position == string::npos)
@@ -673,13 +673,13 @@ void replay_chain_database()
   bts::client::client_ptr client = std::make_shared<bts::client::client>("wallet_tests", sim_network);
   //client->open( client_dir.path() );
   std::string client_dir_string = client_dir.path().string();
-  char *fake_argv[] = {"bitshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false"};
+  char *fake_argv[] = {"nameshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false"};
   client->configure_from_command_line(sizeof(fake_argv) / sizeof(fake_argv[0]), fake_argv);
   //client->configure_from_command_line(0, nullptr);
   fc::future<void> client_done = client->start();
   fc::usleep(fc::milliseconds(10));
   bts::blockchain::chain_database_ptr source_blockchain = std::make_shared<bts::blockchain::chain_database>();
-  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\BitShares X");
+  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\NameShares X");
   source_blockchain->open(test_net_chain_dir / "chain", fc::optional<fc::path>());
   BOOST_TEST_MESSAGE("Opened source blockchain containing " << source_blockchain->get_head_block_num() << " blocks");
   unsigned total_blocks_to_replay = source_blockchain->get_head_block_num();// std::min<unsigned>(source_blockchain->get_head_block_num(), 30000);
@@ -748,7 +748,7 @@ void replay_chain_database_in_stages()
   fc::microseconds accumulated_time;
 
   bts::blockchain::chain_database_ptr source_blockchain = std::make_shared<bts::blockchain::chain_database>();
-  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\BitShares X");
+  fc::path test_net_chain_dir("C:\\Users\\Administrator\\AppData\\Roaming\\NameShares X");
   source_blockchain->open(test_net_chain_dir / "chain", fc::optional<fc::path>());
   BOOST_TEST_MESSAGE("Opened source blockchain containing " << source_blockchain->get_head_block_num() << " blocks");
   unsigned total_blocks_to_replay = source_blockchain->get_head_block_num();// std::min<unsigned>(source_blockchain->get_head_block_num(), 30000);
@@ -766,7 +766,7 @@ void replay_chain_database_in_stages()
   {
     bts::client::client_ptr client = std::make_shared<bts::client::client>("wallet_tests", sim_network);
     std::string client_dir_string = client_dir.path().string();
-    char *fake_argv[] = {"bitshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false", "--daemon", "--rpcuser=none", "--rpcpassword=none"};
+    char *fake_argv[] = {"nameshares_client", "--data-dir", (char*)client_dir_string.c_str(), "--accept-incoming-connections=false", "--disable-default-peers", "--upnp=false", "--daemon", "--rpcuser=none", "--rpcpassword=none"};
     client->configure_from_command_line(sizeof(fake_argv) / sizeof(fake_argv[0]), fake_argv);
     fc::future<void> client_done = client->start();
 

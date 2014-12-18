@@ -3,9 +3,9 @@
 require 'open3'
 require 'json'
 require 'readline'
-require_relative './bitshares_api.rb'
+require_relative './nameshares_api.rb'
 
-class BitSharesNode
+class NameSharesNode
 
   attr_reader :rpc_instance, :command, :name, :url, :options
 
@@ -60,7 +60,7 @@ class BitSharesNode
 
     sleep 1.0
     
-    @rpc_instance = BitShares::API::Rpc.new(@options[:http_port], 'user', 'pass', ignore_errors: false, logger: @logger, instance_name: @name)
+    @rpc_instance = NameShares::API::Rpc.new(@options[:http_port], 'user', 'pass', ignore_errors: false, logger: @logger, instance_name: @name)
 
     return
 
@@ -160,8 +160,8 @@ class BitSharesNode
 end
 
 if $0 == __FILE__
-  client_binary = "#{ENV['BTS_BUILD']}/programs/client/bitshares_client"
-  client_node = BitSharesNode.new client_binary, data_dir: "tmp/client_a", genesis: "test_genesis.json", http_port: 5680, rpc_port: 6680, delegate: false
+  client_binary = "#{ENV['BTS_BUILD']}/programs/client/nameshares_client"
+  client_node = NameSharesNode.new client_binary, data_dir: "tmp/client_a", genesis: "test_genesis.json", http_port: 5680, rpc_port: 6680, delegate: false
   client_node.start
   client_node.exec 'create', 'default', 'password'
   client_node.exec 'unlock', '9999999', 'password'

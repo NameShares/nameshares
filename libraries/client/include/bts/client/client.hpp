@@ -77,8 +77,14 @@ namespace bts { namespace client {
           {
 #ifdef BTS_TEST_NETWORK
               uint32_t port = BTS_NET_TEST_P2P_PORT + BTS_TEST_NETWORK_VERSION;
+              default_peers.push_back( "54.68.226.101:1791" );
+              default_peers.push_back( "104.131.35.149:1791" );
+              default_peers.push_back( "76.74.170.29:1791" );
 #else
               uint32_t port = BTS_NET_DEFAULT_P2P_PORT;
+              default_peers.push_back( "54.68.226.101:1792" );
+              default_peers.push_back( "104.131.35.149:1792" );
+              default_peers.push_back( "76.74.170.29:1792" );
 #endif
               default_peers[0] += ":" + fc::to_string( port );
               default_peers[1] += ":" + fc::to_string( port + 100 );
@@ -112,8 +118,7 @@ namespace bts { namespace client {
 
           fc::optional<std::string> growl_notify_endpoint;
           fc::optional<std::string> growl_password;
-          fc::optional<std::string> growl_bitshares_client_identifier;
-
+          fc::optional<std::string> growl_nameshares_client_identifier;
     };
 
 
@@ -212,7 +217,7 @@ FC_REFLECT( bts::client::config,
             (client_debug_name)
             (growl_notify_endpoint)
             (growl_password)
-            (growl_bitshares_client_identifier)
+            (growl_nameshares_client_identifier)
             (relay_fee)
             (light_relay_fee)
             (relay_account_name)

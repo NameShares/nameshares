@@ -13,7 +13,7 @@ namespace bts { namespace client {
     {
     public:
       fc::gntp_notifier _notifier;
-      fc::gntp_icon_ptr _bitshares_icon;
+      fc::gntp_icon_ptr _nameshares_icon;
       std::string _bts_instance_identifier;
 
       bool     _shutting_down;
@@ -27,18 +27,18 @@ namespace bts { namespace client {
       uint32_t _missed_block_count_threshold;
 
       bts_gntp_notifier_impl(const std::string& host_to_notify = "127.0.0.1", uint16_t port = 23053,
-                             const std::string& bts_instance_identifier = "BitShares",
+                             const std::string& bts_instance_identifier = "NameShares",
                              const fc::optional<std::string>& password = fc::optional<std::string>());
       void register_notification_types();
     };
-    extern unsigned char bitshares_icon_png[];
-    extern unsigned bitshares_icon_png_len;
+    extern unsigned char nameshares_icon_png[];
+    extern unsigned nameshares_icon_png_len;
 
     bts_gntp_notifier_impl::bts_gntp_notifier_impl(const std::string&  host_to_notify /* = "127.0.0.1" */, uint16_t port /* = 23053 */,
-                                                   const std::string& bts_instance_identifier /* = "BitShares" */,
+                                                   const std::string& bts_instance_identifier /* = "NameShares" */,
                                                    const fc::optional<std::string>& password /* = optional<std::string>() */) :
       _notifier(host_to_notify, port, password),
-      _bitshares_icon(std::make_shared<fc::gntp_icon>((const char*)bitshares_icon_png, bitshares_icon_png_len)),
+      _nameshares_icon(std::make_shared<fc::gntp_icon>((const char*)nameshares_icon_png, nameshares_icon_png_len)),
       _bts_instance_identifier(bts_instance_identifier),
       _shutting_down(false),
       _last_reported_connection_count(0),
@@ -56,19 +56,19 @@ namespace bts { namespace client {
       notification_type.name = "connection_count_below_threshold";
       notification_type.display_name = "Connection Count Below Threshold";
       notification_type.enabled = true;
-      notification_type.icon = _bitshares_icon;
+      notification_type.icon = _nameshares_icon;
       _notifier.add_notification_type(notification_type);
 
       notification_type.name = "client_exiting_unexpectedly";
       notification_type.display_name = "Client Exiting Unexpectedly";
       notification_type.enabled = true;
-      notification_type.icon = _bitshares_icon;
+      notification_type.icon = _nameshares_icon;
       _notifier.add_notification_type(notification_type);
 
       notification_type.name = "head_block_too_old";
       notification_type.display_name = "Head Block is Too Old";
       notification_type.enabled = true;
-      notification_type.icon = _bitshares_icon;
+      notification_type.icon = _nameshares_icon;
       _notifier.add_notification_type(notification_type);
 
       _notifier.register_notifications();
@@ -76,12 +76,12 @@ namespace bts { namespace client {
   }
 
   bts_gntp_notifier::bts_gntp_notifier(const std::string& host_to_notify /* = "127.0.0.1" */, uint16_t port /* = 23053 */,
-                                       const std::string& bts_instance_identifier /* = "BitShares" */,
+                                       const std::string& bts_instance_identifier /* = "NameShares" */,
                                        const fc::optional<std::string>& password /* = fc::optional<std::string>() */) : 
     my(new detail::bts_gntp_notifier_impl(host_to_notify, port, bts_instance_identifier, password))
   {
-    my->_notifier.set_application_name("BitShares");
-    my->_notifier.set_application_icon(my->_bitshares_icon);
+    my->_notifier.set_application_name("NameShares");
+    my->_notifier.set_application_icon(my->_nameshares_icon);
     my->register_notification_types();
   }
 
@@ -109,7 +109,7 @@ namespace bts { namespace client {
         std::ostringstream message;
         message << my->_bts_instance_identifier << ": peer connection count dropped to " << new_connection_count << 
                    ", which is below the warning threshold of " << my->_connection_count_notification_threshold;
-        my->_notifier.send_notification("connection_count_below_threshold", "Connection Count Below Threshold", message.str(), my->_bitshares_icon);
+        my->_notifier.send_notification("connection_count_below_threshold", "Connection Count Below Threshold", message.str(), my->_nameshares_icon);
         my->_last_reported_connection_count = new_connection_count;
         my->_last_connection_count_notification_time = fc::time_point::now();
       }
@@ -120,7 +120,7 @@ namespace bts { namespace client {
   {
     std::ostringstream message;
     message << my->_bts_instance_identifier << ": client is exiting due to an unhandled exception";
-    my->_notifier.send_notification("client_exiting_unexpectedly", "Client Exiting Unexpectedly", message.str(), my->_bitshares_icon);
+    my->_notifier.send_notification("client_exiting_unexpectedly", "Client Exiting Unexpectedly", message.str(), my->_nameshares_icon);
   }
 
   void bts_gntp_notifier::notify_head_block_too_old(const fc::time_point_sec& head_block_age)
@@ -136,7 +136,7 @@ namespace bts { namespace client {
         uint32_t missed_block_count = age_in_sec / BTS_BLOCKCHAIN_BLOCK_INTERVAL_SEC;
         message << my->_bts_instance_identifier << ": the last block on our blockchain is " << fc::get_approximate_relative_time_string(head_block_age, bts::blockchain::now(), " old") << 
                    ", meaning we've missed " << missed_block_count << " blocks";
-        my->_notifier.send_notification("head_block_too_old", "Head Block is Too Old", message.str(), my->_bitshares_icon);
+        my->_notifier.send_notification("head_block_too_old", "Head Block is Too Old", message.str(), my->_nameshares_icon);
         my->_last_head_block_too_old_notification_time = fc::time_point::now();    
       }
     }
@@ -145,7 +145,7 @@ namespace bts { namespace client {
 
   namespace detail
   {
-    unsigned char bitshares_icon_png[] = {
+    unsigned char nameshares_icon_png[] = {
       0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x00, 0x00, 0x0d,
       0x49, 0x48, 0x44, 0x52, 0x00, 0x00, 0x00, 0x40, 0x00, 0x00, 0x00, 0x40,
       0x08, 0x02, 0x00, 0x00, 0x00, 0x25, 0x0b, 0xe6, 0x89, 0x00, 0x00, 0x00,
@@ -660,7 +660,7 @@ namespace bts { namespace client {
       0x00, 0x12, 0xc2, 0xcb, 0x56, 0xae, 0xbc, 0xa9, 0x59, 0x00, 0x00, 0x00,
       0x00, 0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82
     };
-    unsigned bitshares_icon_png_len = 6153;
+    unsigned nameshares_icon_png_len = 6153;
 
   }
 

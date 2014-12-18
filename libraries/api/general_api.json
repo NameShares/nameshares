@@ -46,7 +46,7 @@
       },
       {
         "method_name": "validate_address",
-        "description": "Return information about given BitShares address",
+        "description": "Return information about given NameShares address",
         "return_type": "json_object",
         "parameters" :
           [
